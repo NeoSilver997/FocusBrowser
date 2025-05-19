@@ -9,6 +9,10 @@ import android.view.MenuItem
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.view.LayoutInflater
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -53,7 +57,9 @@ class MainActivity : AppCompatActivity() {
                 
                 // Check if the domain is blocked
                 if (dbHelper.isDomainBlocked(host)) {
-                    return true // Block navigation
+                    // Show dialog for parent approval
+                    showParentApprovalDialog(host, url)
+                    return true // Block navigation for now
                 }
                 
                 // Check if the URL's domain is in the allowed list
@@ -63,6 +69,8 @@ class MainActivity : AppCompatActivity() {
                     // Allow navigation within allowed domains
                     false
                 } else {
+                    // Show dialog for parent approval for non-allowed domains
+                    showParentApprovalDialog(host, url)
                     // Block navigation to non-allowed domains and stay on current page
                     true
                 }
@@ -113,5 +121,51 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         // Close database connection
         dbHelper.close()
+    }
+    
+    // Method to show parent approval dialog
+    private fun showParentApprovalDialog(domain: String, url: String) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_parent_approval, null)
+        val passwordEditText = dialogView.findViewById<EditText>(R.id.password_edit_text)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.blocked_domain_title))
+            .setMessage(getString(R.string.blocked_domain_message, domain))
+            .setView(dialogView)
+            .setPositiveButton(getString(R.string.approve_access)) { _, _ ->
+                // Do nothing here, we'll override this below
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val password = passwordEditText.text.toString()
+                if (isParentPasswordCorrect(password)) {
+                    // Password correct, allow navigation
+                    dialog.dismiss()
+                    // Temporarily allow this domain
+                    if (dbHelper.isDomainBlocked(domain)) {
+                        // If it was explicitly blocked, temporarily unblock
+                        dbHelper.removeBlockedDomain(domain)
+                        Toast.makeText(this, getString(R.string.domain_temporarily_approved), Toast.LENGTH_SHORT).show()
+                    }
+                    // Load the URL
+                    webView.loadUrl(url)
+                } else {
+                    // Password incorrect
+                    passwordEditText.error = getString(R.string.incorrect_password)
+                }
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    private fun isParentPasswordCorrect(password: String): Boolean {
+        // For demonstration, using a hardcoded password
+        // In a real app, you should use a more secure approach like encrypted shared preferences
+        return password == "0919"
     }
 }

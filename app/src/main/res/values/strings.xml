@@ -10,4 +10,13 @@
     <string name="blocked_domains">Blocked Domains</string>
     <string name="apply_filter">Apply</string>
     <string name="clear_filter">Clear</string>
+    <!-- Parent approval dialog strings -->
+    <string name="blocked_domain_title">Blocked Domain</string>
+    <string name="blocked_domain_message">The domain \"%1$s\" is blocked. Parent approval required to access.</string>
+    <string name="parent_password_prompt">Please enter parent password to approve access:</string>
+    <string name="enter_password">Enter password</string>
+    <string name="approve_access">Approve Access</string>
+    <string name="cancel">Cancel</string>
+    <string name="incorrect_password">Incorrect password</string>
+    <string name="domain_temporarily_approved">Domain temporarily approved</string>
 </resources>
