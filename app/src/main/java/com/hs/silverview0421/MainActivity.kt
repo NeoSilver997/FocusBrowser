@@ -17,7 +17,8 @@ class MainActivity : AppCompatActivity() {
     private val defaultUrl = "https://fireflies.chiculture.org.hk"
     private val allowedDomains = listOf(
         "fireflies.chiculture.org.hk",
-        "chiculture.org.hk"
+        "chiculture.org.hk",
+        "www.ourchinastory.com"
     )
     
     private lateinit var dbHelper: BrowsingHistoryDbHelper

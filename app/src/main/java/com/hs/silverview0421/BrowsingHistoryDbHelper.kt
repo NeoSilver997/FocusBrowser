@@ -70,49 +70,30 @@ class BrowsingHistoryDbHelper(context: Context) : SQLiteOpenHelper(context, DATA
     // Get all history entries
     fun getAllHistory(): Cursor {
         val db = readableDatabase
-        return db.query(
-            TABLE_HISTORY,
-            null,
-            null,
-            null,
-            null,
-            null,
-            "$COLUMN_TIMESTAMP DESC"
-        )
+        return db.rawQuery("SELECT id AS _id, url, title, domain, timestamp FROM $TABLE_HISTORY ORDER BY timestamp DESC", null)
     }
 
-    // Get history with filter
-    fun getFilteredHistory(domain: String? = null, fromDate: Long? = null, toDate: Long? = null): Cursor {
+    fun getFilteredHistory(domain: String? = null, url: String? = null): Cursor {
         val db = readableDatabase
         val selection = StringBuilder()
         val selectionArgs = mutableListOf<String>()
-
-        if (domain != null) {
+        
+        if (!domain.isNullOrEmpty()) {
             selection.append("$COLUMN_DOMAIN LIKE ?")
             selectionArgs.add("%$domain%")
         }
-
-        if (fromDate != null) {
+        
+        if (!url.isNullOrEmpty()) {
             if (selection.isNotEmpty()) selection.append(" AND ")
-            selection.append("$COLUMN_TIMESTAMP >= ?")
-            selectionArgs.add(fromDate.toString())
+            selection.append("$COLUMN_URL LIKE ?")
+            selectionArgs.add("%$url%")
         }
-
-        if (toDate != null) {
-            if (selection.isNotEmpty()) selection.append(" AND ")
-            selection.append("$COLUMN_TIMESTAMP <= ?")
-            selectionArgs.add(toDate.toString())
-        }
-
-        return db.query(
-            TABLE_HISTORY,
-            null,
-            if (selection.isEmpty()) null else selection.toString(),
-            if (selectionArgs.isEmpty()) null else selectionArgs.toTypedArray(),
-            null,
-            null,
-            "$COLUMN_TIMESTAMP DESC"
-        )
+        
+        val query = "SELECT id AS _id, url, title, domain, timestamp FROM $TABLE_HISTORY" +
+                if (selection.isNotEmpty()) " WHERE ${selection.toString()}" else "" +
+                " ORDER BY timestamp DESC"
+        
+        return db.rawQuery(query, selectionArgs.toTypedArray())
     }
 
     // Add a domain to block list
