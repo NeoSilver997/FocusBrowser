@@ -168,6 +168,10 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.menu_screen_captures -> {
+                // Start screen capture service with WebView reference
+                val intent = Intent(this, ScreenCaptureService::class.java)
+                intent.putExtra("webview", webView)
+                startService(intent)
                 // Open screen captures activity
                 startActivity(Intent(this, ScreenCaptureActivity::class.java))
                 true

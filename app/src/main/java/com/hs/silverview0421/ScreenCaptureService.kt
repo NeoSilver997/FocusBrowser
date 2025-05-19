@@ -4,17 +4,12 @@ import android.app.Service
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
-import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
-import android.media.ImageReader
-import android.media.projection.MediaProjection
-import android.media.projection.MediaProjectionManager
+import android.graphics.Canvas
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.util.DisplayMetrics
 import android.util.Log
-import android.view.WindowManager
+import android.webkit.WebView
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 
@@ -31,16 +26,8 @@ class ScreenCaptureService : Service() {
         const val MAX_RETENTION_PERIOD = 7 * 24 * 60 * 60 * 1000L
     }
     
-    private lateinit var mediaProjectionManager: MediaProjectionManager
-    private lateinit var windowManager: WindowManager
     private lateinit var dbHelper: ScreenCaptureDbHelper
-    
-    private var mediaProjection: MediaProjection? = null
-    private var virtualDisplay: VirtualDisplay? = null
-    private var imageReader: ImageReader? = null
-    private var displayWidth = 0
-    private var displayHeight = 0
-    private var displayDensity = 0
+    private var webView: WebView? = null
     
     private val handler = Handler(Looper.getMainLooper())
     private val captureRunnable = object : Runnable {
@@ -52,16 +39,7 @@ class ScreenCaptureService : Service() {
     
     override fun onCreate() {
         super.onCreate()
-        mediaProjectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         dbHelper = ScreenCaptureDbHelper(this)
-        
-        // Get display metrics
-        val metrics = DisplayMetrics()
-        windowManager.defaultDisplay.getMetrics(metrics)
-        displayWidth = metrics.widthPixels / 2  // Reduce size to save storage
-        displayHeight = metrics.heightPixels / 2 // Reduce size to save storage
-        displayDensity = metrics.densityDpi
         
         // Clean up old captures
         cleanupOldCaptures()
@@ -69,11 +47,9 @@ class ScreenCaptureService : Service() {
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent != null) {
-            val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
-            val resultIntent = intent.getParcelableExtra<Intent>(EXTRA_RESULT_INTENT)
-            
-            if (resultCode != 0 && resultIntent != null) {
-                startCapture(resultCode, resultIntent)
+            webView = intent.getParcelableExtra("webview")
+            if (webView != null) {
+                startCapture()
             }
         }
         return START_STICKY
@@ -88,89 +64,43 @@ class ScreenCaptureService : Service() {
         super.onDestroy()
     }
     
-    private fun startCapture(resultCode: Int, resultIntent: Intent) {
-        mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, resultIntent)
-        mediaProjection?.let { projection ->
-            // Create ImageReader
-            imageReader = ImageReader.newInstance(
-                displayWidth, displayHeight, PixelFormat.RGBA_8888, 2
-            ).also {
-                Log.d(TAG, "ImageReader initialized with dimensions: ${displayWidth}x${displayHeight}")
-            }
-            
-            // Create virtual display
-            virtualDisplay = projection.createVirtualDisplay(
-                "ScreenCapture",
-                displayWidth, displayHeight, displayDensity,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader?.surface, null, null
-            ).also {
-                Log.d(TAG, "VirtualDisplay created: ${it?.display?.name ?: "null"}")
-            }
-            
-            // Start periodic capture
-            // Add short delay before first capture
-Log.d(TAG, "Starting initialization checks with 2 second delay")
-Log.d(TAG, "ImageReader surface available: ${imageReader?.surface != null}")
-handler.postDelayed(object : Runnable {
-    private var retryCount = 0
-    override fun run() {
-        val vdReady = virtualDisplay?.display != null
-        val surfaceReady = imageReader?.surface != null
-        Log.d(TAG, "Check #${retryCount + 1}: VirtualDisplay ready=$vdReady, Surface ready=$surfaceReady")
-        
-        if (vdReady && surfaceReady) {
-            Log.d(TAG, "All components ready after ${retryCount + 1} attempts")
-            captureRunnable.run()
-        } else if (retryCount < 4) {
-            retryCount++
-            Log.w(TAG, "Components not ready. Retry $retryCount/5 in 500ms")
-            handler.postDelayed(this, 500)
-        } else {
-            Log.e(TAG, "Failed initialization after 5 attempts")
-        }
+    private fun startCapture() {
+        // Start periodic capture immediately
+        captureRunnable.run()
     }
-}, 2000)
-        }
     }
     
     private fun stopCapture() {
         handler.removeCallbacks(captureRunnable)
-        virtualDisplay?.release()
-        imageReader?.close()
-        mediaProjection?.stop()
+        webView = null
     }
     
     private fun captureScreen() {
         try {
-            imageReader?.acquireLatestImage()?.use { image ->
-                val planes = image.planes
-                val buffer = planes[0].buffer
-                val pixelStride = planes[0].pixelStride
-                val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * displayWidth
+            webView?.let { view ->
+                // Create a bitmap of the WebView's dimensions
+                val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bitmap)
                 
-                // Create bitmap
-                val bitmap = Bitmap.createBitmap(
-                    displayWidth + rowPadding / pixelStride,
-                    displayHeight, Bitmap.Config.ARGB_8888
-                )
-                bitmap.copyPixelsFromBuffer(buffer)
+                // Draw the WebView content onto the bitmap
+                view.draw(canvas)
                 
                 // Compress bitmap to JPEG
                 val outputStream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, outputStream)
-                val screenshotData = outputStream.toByteArray()
+                val compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, 50, outputStream)
+                Log.d(TAG, "Bitmap compressed to JPEG: $compressed, size=${outputStream.size()}")
                 
+                val screenshotData = outputStream.toByteArray()
                 // Save to database
                 dbHelper.addScreenCapture(screenshotData)
+                Log.d(TAG, "Screenshot saved to database.")
                 
                 // Recycle bitmap
                 bitmap.recycle()
-            }
+            } ?: Log.w(TAG, "WebView is null")
         } catch (e: Exception) {
             Log.e(TAG, "Error capturing screen: ${e.message}", e)
-Log.d(TAG, "Attempting next capture in ${CAPTURE_INTERVAL/1000} seconds")
+            Log.d(TAG, "Attempting next capture in ${CAPTURE_INTERVAL/1000} seconds")
         }
     }
     
