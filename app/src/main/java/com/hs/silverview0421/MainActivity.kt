@@ -28,13 +28,13 @@ class MainActivity : AppCompatActivity() {
     
     // Map of site names to domain URLs for the dropdown
     private val siteMap = mapOf(
+        "WYJJMPS" to "https://www.wyjjmps.edu.hk",
         "篇篇流螢" to "https://fireflies.chiculture.org.hk",
+        "快樂閱讀花園" to "https://readinggarden.chinese.ephhk.com",
+        "STAR" to "https://wapps1.hkedcity.net/cas/login?service=https%3A%2F%2Festar.edcity.hk%2F",
         "Chi Culture" to "https://chiculture.org.hk",
         "Our China Story" to "https://www.ourchinastory.com",
-        "WYJJMPS" to "https://www.wyjjmps.edu.hk",
         "EPH Chinese" to "https://ephchinese.ephhk.com",
-        "快樂閱讀花園" to "https://readinggarden.chinese.ephhk.com",
-        "SJRC Club" to "https://sjrc.club",
         "eClass WYJJMPS" to "https://eclass.wyjjmps.edu.hk"
     )
     
@@ -47,7 +47,12 @@ class MainActivity : AppCompatActivity() {
         "ephchinese.ephhk.com",
         "readinggarden.chinese.ephhk.com",
         "sjrc.club",
-        "eclass.wyjjmps.edu.hk"
+        "eclass.wyjjmps.edu.hk",
+        "star.hkedcity.net",
+        "wapps1.hkedcity.net",
+        "star.edcity.hk",
+        "teacher.edcity.hk",
+        "www.edcity.hk"
     )
     
     private lateinit var dbHelper: BrowsingHistoryDbHelper
@@ -181,7 +186,7 @@ class MainActivity : AppCompatActivity() {
         dbHelper.close()
     }
     
-    // Set up scroll detection to hide/show spinner when scrolling in WebView
+    // Set up scroll detection to hide/show spinner and action bar when scrolling in WebView
     private fun setupScrollDetection() {
         // Initial Y position for scroll detection
         var lastScrollY = 0
@@ -190,15 +195,19 @@ class MainActivity : AppCompatActivity() {
         webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             // Check scroll direction
             if (scrollY > oldScrollY && scrollY > 10) {
-                // Scrolling down - hide the spinner
+                // Scrolling down - hide the spinner and action bar
                 if (domainSpinner.visibility == View.VISIBLE) {
                     domainSpinner.visibility = View.GONE
                 }
+                // Hide the action bar when scrolling down
+                supportActionBar?.hide()
             } else if (scrollY < oldScrollY && scrollY < 10) {
-                // Scrolling up to the top - show the spinner
+                // Scrolling up to the top - show the spinner and action bar
                 if (domainSpinner.visibility == View.GONE) {
                     domainSpinner.visibility = View.VISIBLE
                 }
+                // Show the action bar when scrolling up to the top
+                supportActionBar?.show()
             }
             
             // Update last scroll position
