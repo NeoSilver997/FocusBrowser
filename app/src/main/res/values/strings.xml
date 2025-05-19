@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">快樂閱讀</string>
+    <string name="menu_history">History</string>
+    <string name="history_title">Browsing History</string>
+    <string name="no_history">No browsing history</string>
+    <string name="filter_hint">Filter by domain</string>
+    <string name="block_domain">Block Domain</string>
+    <string name="unblock_domain">Unblock Domain</string>
+    <string name="clear_history">Clear History</string>
+    <string name="blocked_domains">Blocked Domains</string>
+    <string name="apply_filter">Apply</string>
+    <string name="clear_filter">Clear</string>
+</resources>
