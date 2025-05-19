@@ -3,8 +3,8 @@ package com.hs.silverview0421
 import android.app.Service
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.PixelFormat
 import android.graphics.Canvas
+import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -25,6 +25,12 @@ class ScreenCaptureService : Service() {
         
         // Maximum retention period (7 days in milliseconds)
         const val MAX_RETENTION_PERIOD = 7 * 24 * 60 * 60 * 1000L
+
+        private var activeWebView: WebView? = null
+        
+        fun setActiveWebView(webView: WebView?) {
+            activeWebView = webView
+        }
     }
     
     private lateinit var dbHelper: ScreenCaptureDbHelper
@@ -68,15 +74,6 @@ class ScreenCaptureService : Service() {
     private fun startCapture() {
         // Start periodic capture immediately
         captureRunnable.run()
-    }
-    }
-    
-    companion object {
-        private var activeWebView: WebView? = null
-        
-        fun setActiveWebView(webView: WebView?) {
-            activeWebView = webView
-        }
     }
     
     private fun stopCapture() {
