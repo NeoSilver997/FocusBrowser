@@ -94,7 +94,9 @@ class ScreenCaptureService : Service() {
             // Create ImageReader
             imageReader = ImageReader.newInstance(
                 displayWidth, displayHeight, PixelFormat.RGBA_8888, 2
-            )
+            ).also {
+                Log.d(TAG, "ImageReader initialized with dimensions: ${displayWidth}x${displayHeight}")
+            }
             
             // Create virtual display
             virtualDisplay = projection.createVirtualDisplay(
@@ -102,10 +104,33 @@ class ScreenCaptureService : Service() {
                 displayWidth, displayHeight, displayDensity,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 imageReader?.surface, null, null
-            )
+            ).also {
+                Log.d(TAG, "VirtualDisplay created: ${it?.display?.name ?: "null"}")
+            }
             
             // Start periodic capture
-            handler.post(captureRunnable)
+            // Add short delay before first capture
+Log.d(TAG, "Starting initialization checks with 2 second delay")
+Log.d(TAG, "ImageReader surface available: ${imageReader?.surface != null}")
+handler.postDelayed(object : Runnable {
+    private var retryCount = 0
+    override fun run() {
+        val vdReady = virtualDisplay?.display != null
+        val surfaceReady = imageReader?.surface != null
+        Log.d(TAG, "Check #${retryCount + 1}: VirtualDisplay ready=$vdReady, Surface ready=$surfaceReady")
+        
+        if (vdReady && surfaceReady) {
+            Log.d(TAG, "All components ready after ${retryCount + 1} attempts")
+            captureRunnable.run()
+        } else if (retryCount < 4) {
+            retryCount++
+            Log.w(TAG, "Components not ready. Retry $retryCount/5 in 500ms")
+            handler.postDelayed(this, 500)
+        } else {
+            Log.e(TAG, "Failed initialization after 5 attempts")
+        }
+    }
+}, 2000)
         }
     }
     
@@ -144,7 +169,8 @@ class ScreenCaptureService : Service() {
                 bitmap.recycle()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error capturing screen: ${e.message}")
+            Log.e(TAG, "Error capturing screen: ${e.message}", e)
+Log.d(TAG, "Attempting next capture in ${CAPTURE_INTERVAL/1000} seconds")
         }
     }
     
