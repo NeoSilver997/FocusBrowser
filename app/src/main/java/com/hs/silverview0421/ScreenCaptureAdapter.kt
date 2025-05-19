@@ -3,6 +3,9 @@ package com.hs.silverview0421
 import android.content.Context
 import android.database.Cursor
 import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -38,8 +41,22 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
         val date = Date(timestamp)
         timestampText.text = dateFormat.format(date)
         
-        // Convert byte array to bitmap and set to ImageView
-        val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
-        imageView.setImageBitmap(bitmap)
+        // Use a background thread to decode the bitmap and set it to the ImageView
+        Thread {
+            try {
+                // Set bitmap decoding options to reduce memory usage
+                val options = BitmapFactory.Options().apply {
+                    inSampleSize = 2  // Reduce image size to 1/4 of original (half width, half height)
+                }
+                val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size, options)
+                
+                // Update UI on main thread
+                Handler(Looper.getMainLooper()).post {
+                    imageView.setImageBitmap(bitmap)
+                }
+            } catch (e: Exception) {
+                Log.e("ScreenCaptureAdapter", "Error loading image: ${e.message}")
+            }
+        }.start()
     }
 }

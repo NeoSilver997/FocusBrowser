@@ -5,12 +5,14 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.util.Log
 import android.view.MenuItem
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.GridView
+import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -33,13 +35,7 @@ class ScreenCaptureActivity : AppCompatActivity() {
     private lateinit var dateFilterSpinner: Spinner
     private lateinit var adapter: ScreenCaptureAdapter
 
-    private val dateRanges = listOf(
-        getString(R.string.all_captures),
-        getString(R.string.today),
-        getString(R.string.yesterday),
-        getString(R.string.last_3_days),
-        getString(R.string.last_7_days)
-    )
+    private lateinit var dateRanges: List<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +47,15 @@ class ScreenCaptureActivity : AppCompatActivity() {
 
         // Initialize database helper
         dbHelper = ScreenCaptureDbHelper(this)
+        
+        // Initialize date ranges list
+        dateRanges = listOf(
+            getString(R.string.all_captures),
+            getString(R.string.today),
+            getString(R.string.yesterday),
+            getString(R.string.last_3_days),
+            getString(R.string.last_7_days)
+        )
 
         // Initialize views
         gridView = findViewById(R.id.captures_grid_view)
@@ -162,8 +167,43 @@ class ScreenCaptureActivity : AppCompatActivity() {
     }
 
     private fun viewFullSizeCapture(id: Long) {
-        // In a real app, you would open a full-screen activity to display the image
-        Toast.makeText(this, "Viewing capture #$id", Toast.LENGTH_SHORT).show()
+        // Use a background thread to load the image to prevent UI hangs
+        Thread {
+            try {
+                // Get the capture from database
+                val cursor = dbHelper.getCaptureById(id)
+                if (cursor.moveToFirst()) {
+                    val imageDataIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_DATA)
+                    val imageData = cursor.getBlob(imageDataIndex)
+                    
+                    // Update UI on main thread
+                    runOnUiThread {
+                        // Show a dialog with the full-size image
+                        val dialogView = layoutInflater.inflate(R.layout.dialog_full_image, null)
+                        val imageView = dialogView.findViewById<ImageView>(R.id.full_image_view)
+                        
+                        // Load the bitmap in background thread
+                        Thread {
+                            val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
+                            runOnUiThread {
+                                imageView.setImageBitmap(bitmap)
+                            }
+                        }.start()
+                        
+                        androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setView(dialogView)
+                            .setPositiveButton(R.string.close, null)
+                            .show()
+                    }
+                }
+                cursor.close()
+            } catch (e: Exception) {
+                Log.e("ScreenCaptureActivity", "Error viewing capture: ${e.message}")
+                runOnUiThread {
+                    Toast.makeText(this, R.string.error_loading_image, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
     }
 
     private fun deleteCapture(id: Long) {

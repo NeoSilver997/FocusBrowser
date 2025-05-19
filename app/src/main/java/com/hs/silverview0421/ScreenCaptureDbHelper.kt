@@ -97,6 +97,20 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         db.close()
         return deletedRows
     }
+    
+    // Get a specific capture by ID
+    fun getCaptureById(id: Long): Cursor {
+        val db = readableDatabase
+        return db.query(
+            TABLE_CAPTURES,
+            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA),
+            "$COLUMN_ID = ?",
+            arrayOf(id.toString()),
+            null,
+            null,
+            null
+        )
+    }
 
     // Get the total number of captures stored
     fun getCaptureCount(): Int {

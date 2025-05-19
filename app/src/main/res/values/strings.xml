@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">篇篇流螢</string>
+    <string name="full_size_image">Full size image</string>
+    <string name="close">Close</string>
+    <string name="error_loading_image">Error loading image</string>
     <string name="menu_history">History</string>
     <string name="history_title">Browsing History</string>
     <string name="no_history">No browsing history</string>
