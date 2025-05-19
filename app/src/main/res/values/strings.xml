@@ -12,11 +12,26 @@
     <string name="clear_filter">Clear</string>
     <!-- Parent approval dialog strings -->
     <string name="blocked_domain_title">Blocked Domain</string>
-    <string name="blocked_domain_message">The domain \"%1$s\" is blocked. Parent approval required to access.</string>
+    <string name="blocked_domain_message">The domain "%1$s" is blocked. Parent approval required to access.</string>
     <string name="parent_password_prompt">Please enter parent password to approve access:</string>
     <string name="enter_password">Enter password</string>
     <string name="approve_access">Approve Access</string>
     <string name="cancel">Cancel</string>
     <string name="incorrect_password">Incorrect password</string>
     <string name="domain_temporarily_approved">Domain temporarily approved</string>
+    
+    <!-- Screen capture strings -->
+    <string name="menu_screen_captures">Screen Captures</string>
+    <string name="screen_captures_title">Screen Captures</string>
+    <string name="no_captures">No screen captures available</string>
+    <string name="start_capture">Start Capture</string>
+    <string name="view_full_size">View Full Size</string>
+    <string name="delete_capture">Delete</string>
+    <string name="capture_deleted">Capture deleted</string>
+    <string name="capture_service_started">Screen capture service started</string>
+    <string name="all_captures">All Captures</string>
+    <string name="today">Today</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="last_3_days">Last 3 Days</string>
+    <string name="last_7_days">Last 7 Days</string>
 </resources>

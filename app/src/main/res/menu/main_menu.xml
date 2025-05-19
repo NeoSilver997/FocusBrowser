@@ -6,4 +6,9 @@
         android:icon="@android:drawable/ic_menu_recent_history"
         android:title="@string/menu_history"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/menu_screen_captures"
+        android:icon="@android:drawable/ic_menu_camera"
+        android:title="@string/menu_screen_captures"
+        app:showAsAction="ifRoom" />
 </menu>

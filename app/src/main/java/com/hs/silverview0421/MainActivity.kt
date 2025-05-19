@@ -167,6 +167,11 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this, HistoryActivity::class.java))
                 true
             }
+            R.id.menu_screen_captures -> {
+                // Open screen captures activity
+                startActivity(Intent(this, ScreenCaptureActivity::class.java))
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
