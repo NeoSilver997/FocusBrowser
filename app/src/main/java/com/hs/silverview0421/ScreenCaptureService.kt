@@ -18,6 +18,7 @@ class ScreenCaptureService : Service() {
         private const val TAG = "ScreenCaptureService"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_INTENT = "result_intent"
+        const val EXTRA_WEBVIEW_OWNER = "webview_owner"
         
         // Capture interval in milliseconds (30 seconds)
         private const val CAPTURE_INTERVAL = 30 * 1000L
@@ -27,7 +28,7 @@ class ScreenCaptureService : Service() {
     }
     
     private lateinit var dbHelper: ScreenCaptureDbHelper
-    private var webView: WebView? = null
+    private var webViewOwner: String? = null
     
     private val handler = Handler(Looper.getMainLooper())
     private val captureRunnable = object : Runnable {
@@ -47,8 +48,8 @@ class ScreenCaptureService : Service() {
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent != null) {
-            webView = intent.getParcelableExtra("webview")
-            if (webView != null) {
+            webViewOwner = intent.getStringExtra(EXTRA_WEBVIEW_OWNER)
+            if (webViewOwner != null) {
                 startCapture()
             }
         }
@@ -70,14 +71,27 @@ class ScreenCaptureService : Service() {
     }
     }
     
+    companion object {
+        private var activeWebView: WebView? = null
+        
+        fun setActiveWebView(webView: WebView?) {
+            activeWebView = webView
+        }
+    }
+    
     private fun stopCapture() {
         handler.removeCallbacks(captureRunnable)
-        webView = null
+        webViewOwner = null
     }
     
     private fun captureScreen() {
         try {
-            webView?.let { view ->
+            if (webViewOwner == null) {
+                Log.w(TAG, "No active WebView owner")
+                return
+            }
+            
+            activeWebView?.let { view ->
                 // Create a bitmap of the WebView's dimensions
                 val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bitmap)
@@ -97,7 +111,8 @@ class ScreenCaptureService : Service() {
                 
                 // Recycle bitmap
                 bitmap.recycle()
-            } ?: Log.w(TAG, "WebView is null")
+            } ?: Log.w(TAG, "WebView is not available")
+
         } catch (e: Exception) {
             Log.e(TAG, "Error capturing screen: ${e.message}", e)
             Log.d(TAG, "Attempting next capture in ${CAPTURE_INTERVAL/1000} seconds")
