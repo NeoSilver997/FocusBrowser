@@ -6,11 +6,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.view.LayoutInflater
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.EditText
+import android.widget.Spinner
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -18,11 +23,31 @@ import androidx.appcompat.app.AppCompatActivity
 class MainActivity : AppCompatActivity() {
     
     private lateinit var webView: WebView
+    private lateinit var domainSpinner: Spinner
     private val defaultUrl = "https://fireflies.chiculture.org.hk"
+    
+    // Map of site names to domain URLs for the dropdown
+    private val siteMap = mapOf(
+        "篇篇流螢" to "https://fireflies.chiculture.org.hk",
+        "Chi Culture" to "https://chiculture.org.hk",
+        "Our China Story" to "https://www.ourchinastory.com",
+        "WYJJMPS" to "https://www.wyjjmps.edu.hk",
+        "EPH Chinese" to "https://ephchinese.ephhk.com",
+        "快樂閱讀花園" to "https://readinggarden.chinese.ephhk.com",
+        "SJRC Club" to "https://sjrc.club",
+        "eClass WYJJMPS" to "https://eclass.wyjjmps.edu.hk"
+    )
+    
+    // Extract just the domains for URL validation
     private val allowedDomains = listOf(
         "fireflies.chiculture.org.hk",
         "chiculture.org.hk",
-        "www.ourchinastory.com"
+        "www.ourchinastory.com",
+        "www.wyjjmps.edu.hk",
+        "ephchinese.ephhk.com",
+        "readinggarden.chinese.ephhk.com",
+        "sjrc.club",
+        "eclass.wyjjmps.edu.hk"
     )
     
     private lateinit var dbHelper: BrowsingHistoryDbHelper
@@ -35,7 +60,18 @@ class MainActivity : AppCompatActivity() {
         // Initialize database helper
         dbHelper = BrowsingHistoryDbHelper(this)
         
+        // Initialize views
         webView = findViewById(R.id.webView)
+        domainSpinner = findViewById(R.id.domainSpinner)
+        
+        // Set up the domain spinner
+        setupDomainSpinner()
+        
+        // Set up custom action bar with clickable title
+        setupActionBar()
+        
+        // Set up scroll detection to hide/show spinner
+        setupScrollDetection()
         
         // Configure WebView settings
         webView.settings.apply {
@@ -88,13 +124,35 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        // Load the default URL
-        webView.loadUrl(defaultUrl)
+        // Default URL will be loaded by the spinner selection
     }
     
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
+    }
+    
+    // Set up custom action bar with clickable title
+    private fun setupActionBar() {
+        supportActionBar?.let { actionBar ->
+            // Set click listener for the title
+            actionBar.setDisplayShowTitleEnabled(true)
+            
+            // Set a custom OnClickListener for the title area
+            val titleId = resources.getIdentifier("action_bar_title", "id", "android")
+            val titleView = findViewById<TextView>(titleId)
+            
+            titleView?.setOnClickListener {
+                // Toggle the visibility of the domain spinner
+                if (domainSpinner.visibility == View.VISIBLE) {
+                    domainSpinner.visibility = View.GONE
+                } else {
+                    domainSpinner.visibility = View.VISIBLE
+                    // Show dropdown
+                    domainSpinner.performClick()
+                }
+            }
+        }
     }
     
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -121,6 +179,70 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         // Close database connection
         dbHelper.close()
+    }
+    
+    // Set up scroll detection to hide/show spinner when scrolling in WebView
+    private fun setupScrollDetection() {
+        // Initial Y position for scroll detection
+        var lastScrollY = 0
+        
+        // Set up a JavaScript interface to detect scrolling
+        webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+            // Check scroll direction
+            if (scrollY > oldScrollY && scrollY > 10) {
+                // Scrolling down - hide the spinner
+                if (domainSpinner.visibility == View.VISIBLE) {
+                    domainSpinner.visibility = View.GONE
+                }
+            } else if (scrollY < oldScrollY && scrollY < 10) {
+                // Scrolling up to the top - show the spinner
+                if (domainSpinner.visibility == View.GONE) {
+                    domainSpinner.visibility = View.VISIBLE
+                }
+            }
+            
+            // Update last scroll position
+            lastScrollY = scrollY
+        }
+    }
+    
+    // Set up the domain spinner with site names and handle selection
+    private fun setupDomainSpinner() {
+        // Get site names for the spinner
+        val siteNames = siteMap.keys.toList()
+        
+        // Create adapter for spinner
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, siteNames)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        
+        // Set the adapter to the spinner
+        domainSpinner.adapter = adapter
+        
+        // Set selection listener
+        domainSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                val selectedSite = siteNames[position]
+                val url = siteMap[selectedSite] ?: defaultUrl
+                
+                // Load the selected URL
+                webView.loadUrl(url)
+            }
+            
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Load default URL if nothing is selected
+                webView.loadUrl(defaultUrl)
+            }
+        }
+        
+        // Set default selection to match defaultUrl
+        val defaultSite = siteMap.entries.find { it.value == defaultUrl }?.key
+        val defaultPosition = siteNames.indexOf(defaultSite)
+        if (defaultPosition >= 0) {
+            domainSpinner.setSelection(defaultPosition)
+        } else {
+            // If default URL not found in map, just load it directly
+            webView.loadUrl(defaultUrl)
+        }
     }
     
     // Method to show parent approval dialog
