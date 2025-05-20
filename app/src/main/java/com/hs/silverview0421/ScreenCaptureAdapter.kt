@@ -32,14 +32,49 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
         // Get column indices
         val timestampIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_TIMESTAMP)
         val imageDataIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_DATA)
+        val imageHashIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_HASH)
+        val lastViewTimeIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_LAST_VIEW_TIME)
         
         // Get data from cursor
         val timestamp = cursor.getLong(timestampIndex)
         val imageData = cursor.getBlob(imageDataIndex)
+        val imageHash = if (imageHashIndex >= 0) cursor.getString(imageHashIndex) else null
+        val lastViewTime = if (lastViewTimeIndex >= 0 && !cursor.isNull(lastViewTimeIndex)) cursor.getLong(lastViewTimeIndex) else null
         
         // Convert timestamp to readable date
         val date = Date(timestamp)
-        timestampText.text = dateFormat.format(date)
+        val dateStr = dateFormat.format(date)
+        
+        // If this is a cached image (reused from previous capture), indicate it
+        val position = cursor.position
+        var isDuplicate = false
+        
+        if (position < cursor.count - 1 && imageHash != null) {
+            // Check if the next image has the same hash
+            val currentPosition = cursor.position
+            if (cursor.moveToPosition(position + 1)) {
+                val nextHashIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_HASH)
+                if (nextHashIndex >= 0) {
+                    val nextHash = cursor.getString(nextHashIndex)
+                    isDuplicate = imageHash == nextHash
+                }
+            }
+            // Restore cursor position
+            cursor.moveToPosition(currentPosition)
+        }
+        
+        // Format the display text based on whether it's a duplicate and has last view time
+        val displayText = when {
+            isDuplicate && lastViewTime != null -> {
+                val lastViewDate = Date(lastViewTime)
+                val lastViewStr = dateFormat.format(lastViewDate)
+                "$dateStr (cached, last viewed: $lastViewStr)"
+            }
+            isDuplicate -> "$dateStr (cached)"
+            else -> dateStr
+        }
+        
+        timestampText.text = displayText
         
         // Use a background thread to decode the bitmap and set it to the ImageView
         Thread {

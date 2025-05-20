@@ -1,6 +1,7 @@
 package com.hs.silverview0421
 
 import android.app.Service
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,6 +12,7 @@ import android.os.Looper
 import android.util.Log
 import android.webkit.WebView
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 class ScreenCaptureService : Service() {
@@ -21,7 +23,7 @@ class ScreenCaptureService : Service() {
         const val EXTRA_WEBVIEW_OWNER = "webview_owner"
         
         // Capture interval in milliseconds (30 seconds)
-        private const val CAPTURE_INTERVAL = 30 * 1000L
+        private const val CAPTURE_INTERVAL = 10 * 1000L
         
         // Maximum retention period (7 days in milliseconds)
         const val MAX_RETENTION_PERIOD = 7 * 24 * 60 * 60 * 1000L
@@ -88,6 +90,12 @@ class ScreenCaptureService : Service() {
                 return
             }
             
+            // Only capture when the WebView owner is MainActivity
+            if (webViewOwner != "MainActivity") {
+                Log.d(TAG, "Skipping capture: WebView owner is not MainActivity")
+                return
+            }
+            
             activeWebView?.let { view ->
                 // Create a bitmap of the WebView's dimensions
                 val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
@@ -102,9 +110,34 @@ class ScreenCaptureService : Service() {
                 Log.d(TAG, "Bitmap compressed to JPEG: $compressed, size=${outputStream.size()}")
                 
                 val screenshotData = outputStream.toByteArray()
-                // Save to database
-                dbHelper.addScreenCapture(screenshotData)
-                Log.d(TAG, "Screenshot saved to database.")
+                
+                // Calculate hash of the image data
+                val imageHash = calculateHash(screenshotData)
+                
+                // Check if this image is the same as the last one
+                val lastHash = dbHelper.getLastCaptureHash()
+                val lastId = dbHelper.getLastCaptureId()
+                
+                if (imageHash == lastHash && lastId != null) {
+                    // This is a duplicate image, update the timestamp of the last capture
+                    // instead of creating a new entry
+                    val db = dbHelper.writableDatabase
+                    val values = ContentValues().apply {
+                        put(ScreenCaptureDbHelper.COLUMN_TIMESTAMP, System.currentTimeMillis())
+                        put(ScreenCaptureDbHelper.COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
+                    }
+                    db.update(
+                        ScreenCaptureDbHelper.TABLE_CAPTURES,
+                        values,
+                        "${ScreenCaptureDbHelper.COLUMN_ID} = ?",
+                        arrayOf(lastId.toString())
+                    )
+                    Log.d(TAG, "Duplicate image detected, updated timestamp and last view time of existing capture")
+                } else {
+                    // Save to database with hash
+                    dbHelper.addScreenCapture(screenshotData, imageHash)
+                    Log.d(TAG, "Screenshot saved to database with hash: $imageHash")
+                }
                 
                 // Recycle bitmap
                 bitmap.recycle()
@@ -115,6 +148,17 @@ class ScreenCaptureService : Service() {
             Log.d(TAG, "Attempting next capture in ${CAPTURE_INTERVAL/1000} seconds")
         }
     }
+    
+    /**
+      * Calculate a SHA-256 hash of the image data
+      */
+     private fun calculateHash(data: ByteArray): String {
+         val digest = MessageDigest.getInstance("SHA-256")
+         val hashBytes = digest.digest(data)
+         
+         // Convert to hex string
+         return hashBytes.joinToString("") { "%02x".format(it) }
+     }
     
     private fun cleanupOldCaptures() {
         val cutoffTime = System.currentTimeMillis() - MAX_RETENTION_PERIOD

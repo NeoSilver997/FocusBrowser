@@ -10,13 +10,15 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
 
     companion object {
         private const val DATABASE_NAME = "screen_captures.db"
-        private const val DATABASE_VERSION = 2
+        private const val DATABASE_VERSION = 4
 
         // Screen captures table
         const val TABLE_CAPTURES = "screen_captures"
         const val COLUMN_ID = "id"
         const val COLUMN_TIMESTAMP = "timestamp"
         const val COLUMN_IMAGE_DATA = "image_data"
+        const val COLUMN_IMAGE_HASH = "image_hash"
+        const val COLUMN_LAST_VIEW_TIME = "last_view_time"
         
         // Password table
         private const val TABLE_PASSWORD = "password"
@@ -29,7 +31,9 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         val createCapturesTable = "CREATE TABLE $TABLE_CAPTURES ("
                 .plus("$COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT, ")
                 .plus("$COLUMN_TIMESTAMP INTEGER NOT NULL, ")
-                .plus("$COLUMN_IMAGE_DATA BLOB NOT NULL)")
+                .plus("$COLUMN_IMAGE_DATA BLOB NOT NULL, ")
+                .plus("$COLUMN_IMAGE_HASH TEXT, ")
+                .plus("$COLUMN_LAST_VIEW_TIME INTEGER)")
 
         // Create password table
         val createPasswordTable = "CREATE TABLE $TABLE_PASSWORD ("
@@ -61,14 +65,26 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
             }
             db.insert(TABLE_PASSWORD, null, values)
         }
+        
+        if (oldVersion < 3) {
+            // Add image_hash column to screen_captures table
+            db.execSQL("ALTER TABLE $TABLE_CAPTURES ADD COLUMN $COLUMN_IMAGE_HASH TEXT")
+        }
+        
+        if (oldVersion < 4) {
+            // Add last_view_time column to screen_captures table
+            db.execSQL("ALTER TABLE $TABLE_CAPTURES ADD COLUMN $COLUMN_LAST_VIEW_TIME INTEGER")
+        }
     }
 
     // Add a screen capture to the database
-    fun addScreenCapture(imageData: ByteArray) {
+    fun addScreenCapture(imageData: ByteArray, imageHash: String) {
         val db = writableDatabase
         val values = ContentValues().apply {
             put(COLUMN_TIMESTAMP, System.currentTimeMillis())
             put(COLUMN_IMAGE_DATA, imageData)
+            put(COLUMN_IMAGE_HASH, imageHash)
+            put(COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
         }
         db.insert(TABLE_CAPTURES, null, values)
         db.close()
@@ -79,7 +95,7 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         val db = readableDatabase
         return db.query(
             TABLE_CAPTURES,
-            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA),
+            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA, COLUMN_IMAGE_HASH, COLUMN_LAST_VIEW_TIME),
             null,
             null,
             null,
@@ -93,7 +109,7 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         val db = readableDatabase
         return db.query(
             TABLE_CAPTURES,
-            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA),
+            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA, COLUMN_IMAGE_HASH, COLUMN_LAST_VIEW_TIME),
             "$COLUMN_TIMESTAMP BETWEEN ? AND ?",
             arrayOf(startTime.toString(), endTime.toString()),
             null,
@@ -131,13 +147,28 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         val db = readableDatabase
         return db.query(
             TABLE_CAPTURES,
-            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA),
+            arrayOf("$COLUMN_ID AS _id", COLUMN_TIMESTAMP, COLUMN_IMAGE_DATA, COLUMN_IMAGE_HASH, COLUMN_LAST_VIEW_TIME),
             "$COLUMN_ID = ?",
             arrayOf(id.toString()),
             null,
             null,
             null
         )
+    }
+    
+    // Update the last view time for a capture
+    fun updateLastViewTime(id: Long) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
+        }
+        db.update(
+            TABLE_CAPTURES,
+            values,
+            "$COLUMN_ID = ?",
+            arrayOf(id.toString())
+        )
+        db.close()
     }
 
     // Get the total number of captures stored
@@ -219,5 +250,55 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         }
         db.update(TABLE_PASSWORD, values, null, null)
         db.close()
+    }
+    
+    // Get the most recent capture hash
+    fun getLastCaptureHash(): String? {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_CAPTURES,
+            arrayOf(COLUMN_IMAGE_HASH),
+            null,
+            null,
+            null,
+            null,
+            "$COLUMN_TIMESTAMP DESC",
+            "1"
+        )
+        
+        var hash: String? = null
+        if (cursor.moveToFirst()) {
+            val hashIndex = cursor.getColumnIndex(COLUMN_IMAGE_HASH)
+            if (hashIndex >= 0) {
+                hash = cursor.getString(hashIndex)
+            }
+        }
+        cursor.close()
+        return hash
+    }
+    
+    // Get the most recent capture ID
+    fun getLastCaptureId(): Long? {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_CAPTURES,
+            arrayOf(COLUMN_ID),
+            null,
+            null,
+            null,
+            null,
+            "$COLUMN_TIMESTAMP DESC",
+            "1"
+        )
+        
+        var id: Long? = null
+        if (cursor.moveToFirst()) {
+            val idIndex = cursor.getColumnIndex(COLUMN_ID)
+            if (idIndex >= 0) {
+                id = cursor.getLong(idIndex)
+            }
+        }
+        cursor.close()
+        return id
     }
 }

@@ -31,7 +31,7 @@
     <string name="view_full_size">View Full Size</string>
     <string name="delete_capture">Delete</string>
     <string name="capture_deleted">Capture deleted</string>
-    <string name="capture_service_started">Screen capture service started</string>
+    <string name="capture_service_started">Screen capture service started (only captures in main browsing view)</string>
     <string name="all_captures">All Captures</string>
     <string name="today">Today</string>
     <string name="yesterday">Yesterday</string>
@@ -57,4 +57,5 @@
     <string name="clear_all_confirmation">Are you sure you want to delete all screen captures? This action cannot be undone.</string>
     <string name="no_captures_to_clear">No captures to clear</string>
     <string name="cleared_captures">Cleared %1$d captures</string>
+    <string name="use_main_activity_capture">Please use the Screen Captures option in the main browsing view</string>
 </resources>

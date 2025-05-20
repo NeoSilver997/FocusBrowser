@@ -84,7 +84,9 @@ class ScreenCaptureActivity : AppCompatActivity() {
 
         // Set up start capture button
         startCaptureButton.setOnClickListener {
-            //requestScreenCapturePermission()
+            // Return to MainActivity to start capturing
+            Toast.makeText(this, getString(R.string.use_main_activity_capture), Toast.LENGTH_LONG).show()
+            finish()
         }
         
         // Set up clear all button
@@ -188,6 +190,9 @@ class ScreenCaptureActivity : AppCompatActivity() {
     }
 
     private fun viewFullSizeCapture(id: Long) {
+        // Update the last view time for this capture
+        dbHelper.updateLastViewTime(id)
+        
         // Use a background thread to load the image to prevent UI hangs
         Thread {
             try {
