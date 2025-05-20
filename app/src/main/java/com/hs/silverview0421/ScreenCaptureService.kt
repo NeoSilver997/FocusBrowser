@@ -118,12 +118,33 @@ class ScreenCaptureService : Service() {
                 val lastHash = dbHelper.getLastCaptureHash()
                 val lastId = dbHelper.getLastCaptureId()
                 
+                // Get current URL and title from WebView if available
+                var url: String? = null
+                var title: String? = null
+                var domain: String? = null
+                
+                activeWebView?.let { webView ->
+                    url = webView.url
+                    title = webView.title
+                    url?.let { fullUrl ->
+                        try {
+                            domain = android.net.Uri.parse(fullUrl).host
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing domain from URL: ${e.message}")
+                        }
+                    }
+                }
+                
                 if (imageHash == lastHash && lastId != null) {
-                    // This is a duplicate image, update the timestamp of the last capture
+                    // This is a duplicate image, update the timestamp and browsing data of the last capture
                     // instead of creating a new entry
                     val db = dbHelper.writableDatabase
                     val values = ContentValues().apply {
                         put(ScreenCaptureDbHelper.COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
+                        // Update browsing data if available
+                        if (url != null) put(ScreenCaptureDbHelper.COLUMN_URL, url)
+                        if (title != null) put(ScreenCaptureDbHelper.COLUMN_TITLE, title)
+                        if (domain != null) put(ScreenCaptureDbHelper.COLUMN_DOMAIN, domain)
                     }
                     db.update(
                         ScreenCaptureDbHelper.TABLE_CAPTURES,
@@ -131,11 +152,28 @@ class ScreenCaptureService : Service() {
                         "${ScreenCaptureDbHelper.COLUMN_ID} = ?",
                         arrayOf(lastId.toString())
                     )
-                    Log.d(TAG, "Duplicate image detected, updated timestamp and last view time of existing capture")
+                    Log.d(TAG, "Duplicate image detected, updated timestamp, browsing data, and last view time of existing capture")
                 } else {
-                    // Save to database with hash
-                    dbHelper.addScreenCapture(screenshotData, imageHash)
-                    Log.d(TAG, "Screenshot saved to database with hash: $imageHash")
+                    // Get current URL and title from WebView if available
+                var url: String? = null
+                var title: String? = null
+                var domain: String? = null
+                
+                activeWebView?.let { webView ->
+                    url = webView.url
+                    title = webView.title
+                    url?.let { fullUrl ->
+                        try {
+                            domain = android.net.Uri.parse(fullUrl).host
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing domain from URL: ${e.message}")
+                        }
+                    }
+                }
+                
+                // Save to database with hash and browsing data
+                dbHelper.addScreenCapture(screenshotData, imageHash, url, title, domain)
+                Log.d(TAG, "Screenshot saved to database with hash: $imageHash, URL: $url, domain: $domain")
                 }
                 
                 // Recycle bitmap

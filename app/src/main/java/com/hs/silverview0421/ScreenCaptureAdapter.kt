@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.CursorAdapter
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -20,26 +21,93 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     
+    // View types
+    private val VIEW_TYPE_ITEM = 0
+    private val VIEW_TYPE_SECTION_HEADER = 1
+    
+    // Track section headers
+    private val sectionHeaders = mutableMapOf<Int, String>()
+    private var lastDomain: String? = null
+    
+    override fun getViewTypeCount(): Int {
+        return 2 // Regular item and section header
+    }
+    
+    override fun getItemViewType(position: Int): Int {
+        return if (sectionHeaders.containsKey(position)) VIEW_TYPE_SECTION_HEADER else VIEW_TYPE_ITEM
+    }
+    
+    override fun getCount(): Int {
+        return super.getCount() + sectionHeaders.size
+    }
+    
+    override fun getItem(position: Int): Any? {
+        // Adjust position for real cursor position (accounting for headers)
+        if (sectionHeaders.containsKey(position)) {
+            return sectionHeaders[position]
+        }
+        
+        // Count headers before this position to get real cursor position
+        val headersBeforePosition = sectionHeaders.keys.count { it <= position }
+        val cursorPosition = position - headersBeforePosition
+        
+        return if (cursor.moveToPosition(cursorPosition)) cursor else null
+    }
+    
+    override fun getItemId(position: Int): Long {
+        if (sectionHeaders.containsKey(position)) {
+            return Long.MAX_VALUE - position // Ensure unique IDs for headers
+        }
+        
+        // Get real cursor position
+        val headersBeforePosition = sectionHeaders.keys.count { it <= position }
+        val cursorPosition = position - headersBeforePosition
+        
+        return if (cursor.moveToPosition(cursorPosition)) cursor.getLong(cursor.getColumnIndexOrThrow("_id")) else 0
+    }
+    
     override fun newView(context: Context, cursor: Cursor, parent: ViewGroup): View {
-        return LayoutInflater.from(context).inflate(R.layout.item_screen_capture, parent, false)
+        val viewType = getItemViewType(cursor.position)
+        return if (viewType == VIEW_TYPE_SECTION_HEADER) {
+            LayoutInflater.from(context).inflate(R.layout.item_section_header, parent, false)
+        } else {
+            LayoutInflater.from(context).inflate(R.layout.item_screen_capture, parent, false)
+        }
     }
 
     override fun bindView(view: View, context: Context, cursor: Cursor) {
-        // Get views
+        val viewType = getItemViewType(cursor.position)
+        
+        if (viewType == VIEW_TYPE_SECTION_HEADER) {
+            // Bind section header
+            val headerText = view.findViewById<TextView>(R.id.section_header_text)
+            headerText.text = sectionHeaders[cursor.position] ?: "Unknown Section"
+            return
+        }
+        
+        // Get views for regular item
         val imageView = view.findViewById<ImageView>(R.id.capture_image)
         val timestampText = view.findViewById<TextView>(R.id.capture_timestamp)
+        val urlText = view.findViewById<TextView>(R.id.capture_url)
+        val titleText = view.findViewById<TextView>(R.id.capture_title)
         
         // Get column indices
         val timestampIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_TIMESTAMP)
         val imageDataIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_DATA)
         val imageHashIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_IMAGE_HASH)
         val lastViewTimeIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_LAST_VIEW_TIME)
+        val urlIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_URL)
+        val titleIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_TITLE)
+        val domainIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_DOMAIN)
         
         // Get data from cursor
         val timestamp = cursor.getLong(timestampIndex)
         val imageData = cursor.getBlob(imageDataIndex)
         val imageHash = if (imageHashIndex >= 0) cursor.getString(imageHashIndex) else null
         val lastViewTime = if (lastViewTimeIndex >= 0 && !cursor.isNull(lastViewTimeIndex)) cursor.getLong(lastViewTimeIndex) else null
+        val url = if (urlIndex >= 0 && !cursor.isNull(urlIndex)) cursor.getString(urlIndex) else null
+        val title = if (titleIndex >= 0 && !cursor.isNull(titleIndex)) cursor.getString(titleIndex) else null
+        val domain = if (domainIndex >= 0 && !cursor.isNull(domainIndex)) cursor.getString(domainIndex) else null
         
         // Convert timestamp to readable date
         val date = Date(timestamp)
@@ -76,6 +144,21 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
         
         timestampText.text = displayText
         
+        // Set URL and title if available
+        if (url != null) {
+            urlText.visibility = View.VISIBLE
+            urlText.text = url
+        } else {
+            urlText.visibility = View.GONE
+        }
+        
+        if (title != null) {
+            titleText.visibility = View.VISIBLE
+            titleText.text = title
+        } else {
+            titleText.visibility = View.GONE
+        }
+        
         // Use a background thread to decode the bitmap and set it to the ImageView
         Thread {
             try {
@@ -93,5 +176,42 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
                 Log.e("ScreenCaptureAdapter", "Error loading image: ${e.message}")
             }
         }.start()
+    }
+    
+    override fun changeCursor(cursor: Cursor?) {
+        super.changeCursor(cursor)
+        updateSectionHeaders()
+    }
+    
+    private fun updateSectionHeaders() {
+        sectionHeaders.clear()
+        lastDomain = null
+        
+        if (cursor == null || cursor.count == 0) {
+            return
+        }
+        
+        var headerCount = 0
+        val domainIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_DOMAIN)
+        
+        if (domainIndex < 0) {
+            return
+        }
+        
+        cursor.moveToPosition(-1)
+        while (cursor.moveToNext()) {
+            val domain = if (!cursor.isNull(domainIndex)) cursor.getString(domainIndex) else null
+            
+            if (domain != null && domain != lastDomain) {
+                // Add a section header before this item
+                val position = cursor.position + headerCount
+                sectionHeaders[position] = domain
+                headerCount++
+                lastDomain = domain
+            }
+        }
+        
+        // Reset cursor position
+        cursor.moveToPosition(-1)
     }
 }

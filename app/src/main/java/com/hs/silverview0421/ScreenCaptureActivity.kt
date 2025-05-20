@@ -39,12 +39,14 @@ class ScreenCaptureActivity : AppCompatActivity() {
     private lateinit var emptyView: TextView
     private lateinit var startCaptureButton: Button
     private lateinit var dateFilterSpinner: Spinner
+    private lateinit var domainFilterSpinner: Spinner
     private lateinit var clearAllButton: Button
     private lateinit var adapter: ScreenCaptureAdapter
     
     private var isAuthenticated = false
 
     private lateinit var dateRanges: List<String>
+    private lateinit var domains: List<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,14 +75,16 @@ class ScreenCaptureActivity : AppCompatActivity() {
         startCaptureButton = findViewById(R.id.start_capture_button)
         startCaptureButton.text = getString(R.string.start_capture)
         dateFilterSpinner = findViewById(R.id.date_filter_spinner)
+        domainFilterSpinner = findViewById(R.id.domain_filter_spinner)
         clearAllButton = findViewById(R.id.clear_all_button)
         clearAllButton.text = getString(R.string.clear_all)
 
         // Set empty view for grid
         gridView.emptyView = emptyView
 
-        // Set up date filter spinner
+        // Set up filter spinners
         setupDateFilterSpinner()
+        setupDomainFilterSpinner()
 
         // Set up start capture button
         startCaptureButton.setOnClickListener {
@@ -105,13 +109,7 @@ class ScreenCaptureActivity : AppCompatActivity() {
 
         dateFilterSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                when (position) {
-                    0 -> loadAllCaptures()
-                    1 -> loadCapturesForToday()
-                    2 -> loadCapturesForYesterday()
-                    3 -> loadCapturesForLastNDays(3)
-                    4 -> loadCapturesForLastNDays(7)
-                }
+                applyFilters()
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -119,45 +117,82 @@ class ScreenCaptureActivity : AppCompatActivity() {
             }
         }
     }
+    
+    private fun setupDomainFilterSpinner() {
+        // Get all domains from database
+        domains = listOf("All Domains") + dbHelper.getAllDomains()
+        
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, domains)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        domainFilterSpinner.adapter = adapter
+        
+        domainFilterSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                applyFilters()
+            }
+            
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Do nothing
+            }
+        }
+    }
+    
+    private fun applyFilters() {
+        val datePosition = dateFilterSpinner.selectedItemPosition
+        val domainPosition = domainFilterSpinner.selectedItemPosition
+        
+        // First apply date filter
+        val cursor = when (datePosition) {
+            0 -> dbHelper.getAllCaptures()
+            1 -> {
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                val startOfDay = calendar.timeInMillis
+                dbHelper.getCapturesInRange(startOfDay, System.currentTimeMillis())
+            }
+            2 -> {
+                val calendar = Calendar.getInstance()
+                // Start of today
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                val startOfToday = calendar.timeInMillis
+                // Start of yesterday
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                val startOfYesterday = calendar.timeInMillis
+                dbHelper.getCapturesInRange(startOfYesterday, startOfToday - 1)
+            }
+            3 -> {
+                val calendar = Calendar.getInstance()
+                calendar.add(Calendar.DAY_OF_YEAR, -3)
+                val startTime = calendar.timeInMillis
+                dbHelper.getCapturesInRange(startTime, System.currentTimeMillis())
+            }
+            4 -> {
+                val calendar = Calendar.getInstance()
+                calendar.add(Calendar.DAY_OF_YEAR, -7)
+                val startTime = calendar.timeInMillis
+                dbHelper.getCapturesInRange(startTime, System.currentTimeMillis())
+            }
+            else -> dbHelper.getAllCaptures()
+        }
+        
+        // Then apply domain filter if not "All Domains"
+        if (domainPosition > 0 && domains.size > domainPosition) {
+            val selectedDomain = domains[domainPosition]
+            // We need to filter the cursor in memory since we can't easily combine SQL queries
+            // This is a simple approach - for a real app, you might want to optimize this
+            val filteredCursor = dbHelper.getCapturesByDomain(selectedDomain)
+            setupAdapter(filteredCursor)
+        } else {
+            setupAdapter(cursor)
+        }
+    }
 
     private fun loadAllCaptures() {
         val cursor = dbHelper.getAllCaptures()
-        setupAdapter(cursor)
-    }
-
-    private fun loadCapturesForToday() {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        val startOfDay = calendar.timeInMillis
-
-        val cursor = dbHelper.getCapturesInRange(startOfDay, System.currentTimeMillis())
-        setupAdapter(cursor)
-    }
-
-    private fun loadCapturesForYesterday() {
-        val calendar = Calendar.getInstance()
-        // Start of today
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        val startOfToday = calendar.timeInMillis
-
-        // Start of yesterday
-        calendar.add(Calendar.DAY_OF_YEAR, -1)
-        val startOfYesterday = calendar.timeInMillis
-
-        val cursor = dbHelper.getCapturesInRange(startOfYesterday, startOfToday - 1)
-        setupAdapter(cursor)
-    }
-
-    private fun loadCapturesForLastNDays(days: Int) {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.DAY_OF_YEAR, -days)
-        val startTime = calendar.timeInMillis
-
-        val cursor = dbHelper.getCapturesInRange(startTime, System.currentTimeMillis())
         setupAdapter(cursor)
     }
 
