@@ -10,13 +10,18 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
 
     companion object {
         private const val DATABASE_NAME = "screen_captures.db"
-        private const val DATABASE_VERSION = 1
+        private const val DATABASE_VERSION = 2
 
         // Screen captures table
         const val TABLE_CAPTURES = "screen_captures"
         const val COLUMN_ID = "id"
         const val COLUMN_TIMESTAMP = "timestamp"
         const val COLUMN_IMAGE_DATA = "image_data"
+        
+        // Password table
+        private const val TABLE_PASSWORD = "password"
+        private const val COLUMN_PASSWORD = "password_hash"
+        private const val COLUMN_PASSWORD_SET = "is_set"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -26,13 +31,36 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
                 .plus("$COLUMN_TIMESTAMP INTEGER NOT NULL, ")
                 .plus("$COLUMN_IMAGE_DATA BLOB NOT NULL)")
 
+        // Create password table
+        val createPasswordTable = "CREATE TABLE $TABLE_PASSWORD ("
+                .plus("$COLUMN_PASSWORD TEXT, ")
+                .plus("$COLUMN_PASSWORD_SET INTEGER DEFAULT 0)")
+
         db.execSQL(createCapturesTable)
+        db.execSQL(createPasswordTable)
+        
+        // Insert default row for password settings
+        val values = ContentValues().apply {
+            put(COLUMN_PASSWORD_SET, 0)
+        }
+        db.insert(TABLE_PASSWORD, null, values)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Handle database upgrades if needed
-        db.execSQL("DROP TABLE IF EXISTS $TABLE_CAPTURES")
-        onCreate(db)
+        if (oldVersion < 2) {
+            // Create password table if upgrading from version 1
+            val createPasswordTable = "CREATE TABLE $TABLE_PASSWORD ("
+                    .plus("$COLUMN_PASSWORD TEXT, ")
+                    .plus("$COLUMN_PASSWORD_SET INTEGER DEFAULT 0)")
+            
+            db.execSQL(createPasswordTable)
+            
+            // Insert default row for password settings
+            val values = ContentValues().apply {
+                put(COLUMN_PASSWORD_SET, 0)
+            }
+            db.insert(TABLE_PASSWORD, null, values)
+        }
     }
 
     // Add a screen capture to the database
@@ -120,5 +148,76 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         val count = cursor.getInt(0)
         cursor.close()
         return count
+    }
+    
+    // Clear all captures from the database
+    fun clearAllCaptures(): Int {
+        val db = writableDatabase
+        val deletedRows = db.delete(TABLE_CAPTURES, null, null)
+        db.close()
+        return deletedRows
+    }
+    
+    // Set password for screen captures
+    fun setPassword(password: String) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COLUMN_PASSWORD, password)
+            put(COLUMN_PASSWORD_SET, 1)
+        }
+        db.update(TABLE_PASSWORD, values, null, null)
+        db.close()
+    }
+    
+    // Check if password is set
+    fun isPasswordSet(): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_PASSWORD,
+            arrayOf(COLUMN_PASSWORD_SET),
+            null,
+            null,
+            null,
+            null,
+            null
+        )
+        var isSet = false
+        if (cursor.moveToFirst()) {
+            isSet = cursor.getInt(0) == 1
+        }
+        cursor.close()
+        return isSet
+    }
+    
+    // Verify password
+    fun verifyPassword(password: String): Boolean {
+        val db = readableDatabase
+        val cursor = db.query(
+            TABLE_PASSWORD,
+            arrayOf(COLUMN_PASSWORD),
+            "$COLUMN_PASSWORD_SET = 1",
+            null,
+            null,
+            null,
+            null
+        )
+        var isCorrect = false
+        if (cursor.moveToFirst()) {
+            val storedPassword = cursor.getString(0)
+            isCorrect = password == storedPassword
+        }
+        cursor.close()
+        return isCorrect
+    }
+    
+    // Remove password protection
+    fun removePassword() {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            putNull(COLUMN_PASSWORD)
+            put(COLUMN_PASSWORD_SET, 0)
+        }
+        db.update(TABLE_PASSWORD, values, null, null)
+        db.close()
     }
 }

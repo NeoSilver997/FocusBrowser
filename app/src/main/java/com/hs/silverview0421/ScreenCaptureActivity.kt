@@ -3,20 +3,26 @@ package com.hs.silverview0421
 import android.app.Activity
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -33,7 +39,10 @@ class ScreenCaptureActivity : AppCompatActivity() {
     private lateinit var emptyView: TextView
     private lateinit var startCaptureButton: Button
     private lateinit var dateFilterSpinner: Spinner
+    private lateinit var clearAllButton: Button
     private lateinit var adapter: ScreenCaptureAdapter
+    
+    private var isAuthenticated = false
 
     private lateinit var dateRanges: List<String>
 
@@ -64,6 +73,8 @@ class ScreenCaptureActivity : AppCompatActivity() {
         startCaptureButton = findViewById(R.id.start_capture_button)
         startCaptureButton.text = getString(R.string.start_capture)
         dateFilterSpinner = findViewById(R.id.date_filter_spinner)
+        clearAllButton = findViewById(R.id.clear_all_button)
+        clearAllButton.text = getString(R.string.clear_all)
 
         // Set empty view for grid
         gridView.emptyView = emptyView
@@ -73,11 +84,16 @@ class ScreenCaptureActivity : AppCompatActivity() {
 
         // Set up start capture button
         startCaptureButton.setOnClickListener {
-            requestScreenCapturePermission()
+            //requestScreenCapturePermission()
         }
-
-        // Load captures
-        loadAllCaptures()
+        
+        // Set up clear all button
+        clearAllButton.setOnClickListener {
+            showClearAllConfirmation()
+        }
+        
+        // Check if password protection is enabled
+        checkPasswordProtection()
     }
 
     private fun setupDateFilterSpinner() {
@@ -144,6 +160,11 @@ class ScreenCaptureActivity : AppCompatActivity() {
     }
 
     private fun setupAdapter(cursor: android.database.Cursor) {
+        if (!isAuthenticated) {
+            // Don't load captures if not authenticated
+            return
+        }
+        
         adapter = ScreenCaptureAdapter(this, cursor)
         gridView.adapter = adapter
 
@@ -187,13 +208,23 @@ class ScreenCaptureActivity : AppCompatActivity() {
                             val bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.size)
                             runOnUiThread {
                                 imageView.setImageBitmap(bitmap)
+                                
+                                // Set up pinch-to-zoom and pan functionality
+                                setupImageViewZoom(imageView, bitmap)
                             }
                         }.start()
                         
-                        androidx.appcompat.app.AlertDialog.Builder(this)
+                        // Create a fullscreen dialog
+                        val dialog = AlertDialog.Builder(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
                             .setView(dialogView)
-                            .setPositiveButton(R.string.close, null)
-                            .show()
+                            .create()
+                            
+                        // Add a click listener to dismiss on tap
+                        dialogView.setOnClickListener {
+                            dialog.dismiss()
+                        }
+                        
+                        dialog.show()
                     }
                 }
                 cursor.close()
@@ -248,6 +279,152 @@ class ScreenCaptureActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+    
+    private fun setupImageViewZoom(imageView: ImageView, bitmap: android.graphics.Bitmap) {
+        // This is a simplified implementation - for a production app, consider using a library
+        // like PhotoView for better zoom and pan functionality
+        var scale = 1f
+        var scaleFactor = 1.0f
+        val matrix = Matrix()
+        imageView.scaleType = ImageView.ScaleType.MATRIX
+        
+        imageView.setOnTouchListener { v, event ->
+            when (event.action and android.view.MotionEvent.ACTION_MASK) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    // Simple implementation - in a real app, implement proper pinch-to-zoom
+                    matrix.reset()
+                    matrix.postScale(scale, scale, imageView.width / 2f, imageView.height / 2f)
+                    imageView.imageMatrix = matrix
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    // Toggle between fit center and zoomed view on tap
+                    scale = if (scale > 1f) 1f else 2f
+                    matrix.reset()
+                    matrix.postScale(scale, scale, imageView.width / 2f, imageView.height / 2f)
+                    imageView.imageMatrix = matrix
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
+    private fun checkPasswordProtection() {
+        if (dbHelper.isPasswordSet()) {
+            // Password is set, show authentication dialog
+            showPasswordDialog(false)
+        } else {
+            // No password set, ask if user wants to set one
+            showSetPasswordPrompt()
+            isAuthenticated = true
+            loadAllCaptures()
+        }
+    }
+    
+    private fun showSetPasswordPrompt() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.password_protection)
+            .setMessage(R.string.set_password_prompt)
+            .setPositiveButton(R.string.yes) { _, _ ->
+                showPasswordDialog(true)
+            }
+            .setNegativeButton(R.string.no) { _, _ ->
+                // User doesn't want to set a password
+                Toast.makeText(this, R.string.no_password_set, Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+    
+    private fun showPasswordDialog(isSettingPassword: Boolean) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_password, null)
+        val passwordEditText = dialogView.findViewById<EditText>(R.id.password_edit_text)
+        val confirmPasswordEditText = dialogView.findViewById<EditText>(R.id.confirm_password_edit_text)
+        val passwordMessage = dialogView.findViewById<TextView>(R.id.password_message)
+        val titleTextView = dialogView.findViewById<TextView>(R.id.password_dialog_title)
+        
+        if (isSettingPassword) {
+            titleTextView.text = getString(R.string.set_password)
+            confirmPasswordEditText.visibility = View.VISIBLE
+        } else {
+            titleTextView.text = getString(R.string.enter_password)
+        }
+        
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(false)
+            .setPositiveButton(R.string.ok, null) // Set to null initially
+            .setNegativeButton(if (isSettingPassword) R.string.cancel else R.string.exit) { _, _ ->
+                if (!isSettingPassword) {
+                    // User canceled authentication, exit activity
+                    finish()
+                }
+            }
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val password = passwordEditText.text.toString()
+                
+                if (password.isEmpty()) {
+                    passwordMessage.text = getString(R.string.password_empty)
+                    passwordMessage.visibility = View.VISIBLE
+                    return@setOnClickListener
+                }
+                
+                if (isSettingPassword) {
+                    // Setting a new password
+                    val confirmPassword = confirmPasswordEditText.text.toString()
+                    if (password != confirmPassword) {
+                        passwordMessage.text = getString(R.string.passwords_dont_match)
+                        passwordMessage.visibility = View.VISIBLE
+                        return@setOnClickListener
+                    }
+                    
+                    // Save the password
+                    dbHelper.setPassword(password)
+                    Toast.makeText(this, R.string.password_set, Toast.LENGTH_SHORT).show()
+                    isAuthenticated = true
+                    loadAllCaptures()
+                    dialog.dismiss()
+                } else {
+                    // Verifying password
+                    if (dbHelper.verifyPassword(password)) {
+                        isAuthenticated = true
+                        loadAllCaptures()
+                        dialog.dismiss()
+                    } else {
+                        passwordMessage.text = getString(R.string.incorrect_password)
+                        passwordMessage.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    private fun showClearAllConfirmation() {
+        if (dbHelper.getCaptureCount() == 0) {
+            Toast.makeText(this, R.string.no_captures_to_clear, Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clear_all_captures)
+            .setMessage(R.string.clear_all_confirmation)
+            .setPositiveButton(R.string.yes) { _, _ ->
+                val deletedCount = dbHelper.clearAllCaptures()
+                Toast.makeText(this, getString(R.string.cleared_captures, deletedCount), Toast.LENGTH_SHORT).show()
+                loadAllCaptures()
+            }
+            .setNegativeButton(R.string.no, null)
+            .show()
     }
 
     override fun onDestroy() {

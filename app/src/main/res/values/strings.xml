@@ -37,4 +37,24 @@
     <string name="yesterday">Yesterday</string>
     <string name="last_3_days">Last 3 Days</string>
     <string name="last_7_days">Last 7 Days</string>
+    
+    <!-- Password Protection -->
+    <string name="password_protection">Password Protection</string>
+    <string name="set_password_prompt">Would you like to set a password to protect your screen captures?</string>
+    <string name="set_password">Set Password</string>
+    <string name="password_empty">Password cannot be empty</string>
+    <string name="passwords_dont_match">Passwords don\'t match</string>
+    <string name="password_set">Password has been set</string>
+    <string name="no_password_set">No password set</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="ok">OK</string>
+    <string name="exit">Exit</string>
+    
+    <!-- Clear All -->
+    <string name="clear_all">Clear All</string>
+    <string name="clear_all_captures">Clear All Captures</string>
+    <string name="clear_all_confirmation">Are you sure you want to delete all screen captures? This action cannot be undone.</string>
+    <string name="no_captures_to_clear">No captures to clear</string>
+    <string name="cleared_captures">Cleared %1$d captures</string>
 </resources>
