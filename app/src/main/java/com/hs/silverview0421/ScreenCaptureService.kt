@@ -123,7 +123,6 @@ class ScreenCaptureService : Service() {
                     // instead of creating a new entry
                     val db = dbHelper.writableDatabase
                     val values = ContentValues().apply {
-                        put(ScreenCaptureDbHelper.COLUMN_TIMESTAMP, System.currentTimeMillis())
                         put(ScreenCaptureDbHelper.COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
                     }
                     db.update(
