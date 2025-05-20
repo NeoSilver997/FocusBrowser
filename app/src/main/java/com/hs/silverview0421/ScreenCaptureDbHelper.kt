@@ -10,7 +10,7 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
 
     companion object {
         private const val DATABASE_NAME = "screen_captures.db"
-        private const val DATABASE_VERSION = 5
+        private const val DATABASE_VERSION = 6
 
         // Screen captures table
         const val TABLE_CAPTURES = "screen_captures"
@@ -22,6 +22,7 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         const val COLUMN_URL = "url"
         const val COLUMN_TITLE = "title"
         const val COLUMN_DOMAIN = "domain"
+        const val COLUMN_CLICK_COUNT = "click_count"
         
         // Password table
         private const val TABLE_PASSWORD = "password"
@@ -88,10 +89,15 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
             db.execSQL("ALTER TABLE $TABLE_CAPTURES ADD COLUMN $COLUMN_TITLE TEXT")
             db.execSQL("ALTER TABLE $TABLE_CAPTURES ADD COLUMN $COLUMN_DOMAIN TEXT")
         }
+        
+        if (oldVersion < 6) {
+            // Add click_count column to screen_captures table
+            db.execSQL("ALTER TABLE $TABLE_CAPTURES ADD COLUMN $COLUMN_CLICK_COUNT INTEGER DEFAULT 0")
+        }
     }
 
     // Add a screen capture to the database
-    fun addScreenCapture(imageData: ByteArray, imageHash: String, url: String? = null, title: String? = null, domain: String? = null) {
+    fun addScreenCapture(imageData: ByteArray, imageHash: String, url: String? = null, title: String? = null, domain: String? = null, clickCount: Int = 0) {
         val db = writableDatabase
         val values = ContentValues().apply {
             put(COLUMN_TIMESTAMP, System.currentTimeMillis())
@@ -101,6 +107,7 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
             put(COLUMN_URL, url)
             put(COLUMN_TITLE, title)
             put(COLUMN_DOMAIN, domain)
+            put(COLUMN_CLICK_COUNT, clickCount)
         }
         db.insert(TABLE_CAPTURES, null, values)
         db.close()

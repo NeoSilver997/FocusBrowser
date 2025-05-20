@@ -30,8 +30,16 @@ class ScreenCaptureService : Service() {
 
         private var activeWebView: WebView? = null
         
+        // Click counter to track clicks between captures
+        private var clickCounter = 0
+        
         fun setActiveWebView(webView: WebView?) {
             activeWebView = webView
+        }
+        
+        // Method to increment click counter
+        fun incrementClickCounter() {
+            clickCounter++
         }
     }
     
@@ -135,8 +143,12 @@ class ScreenCaptureService : Service() {
                     }
                 }
                 
+                // Get the current click count and log it
+                val currentClickCount = clickCounter
+                Log.d(TAG, "Clicks since last capture: $currentClickCount")
+                
                 if (imageHash == lastHash && lastId != null) {
-                    // This is a duplicate image, update the timestamp and browsing data of the last capture
+                    // This is a duplicate image, update the timestamp, browsing data, and click count of the last capture
                     // instead of creating a new entry
                     val db = dbHelper.writableDatabase
                     val values = ContentValues().apply {
@@ -145,6 +157,8 @@ class ScreenCaptureService : Service() {
                         if (url != null) put(ScreenCaptureDbHelper.COLUMN_URL, url)
                         if (title != null) put(ScreenCaptureDbHelper.COLUMN_TITLE, title)
                         if (domain != null) put(ScreenCaptureDbHelper.COLUMN_DOMAIN, domain)
+                        // Update click count
+                        put(ScreenCaptureDbHelper.COLUMN_CLICK_COUNT, currentClickCount)
                     }
                     db.update(
                         ScreenCaptureDbHelper.TABLE_CAPTURES,
@@ -152,7 +166,7 @@ class ScreenCaptureService : Service() {
                         "${ScreenCaptureDbHelper.COLUMN_ID} = ?",
                         arrayOf(lastId.toString())
                     )
-                    Log.d(TAG, "Duplicate image detected, updated timestamp, browsing data, and last view time of existing capture")
+                    Log.d(TAG, "Duplicate image detected, updated timestamp, browsing data, click count, and last view time of existing capture")
                 } else {
                     // Get current URL and title from WebView if available
                 var url: String? = null
@@ -171,10 +185,13 @@ class ScreenCaptureService : Service() {
                     }
                 }
                 
-                // Save to database with hash and browsing data
-                dbHelper.addScreenCapture(screenshotData, imageHash, url, title, domain)
-                Log.d(TAG, "Screenshot saved to database with hash: $imageHash, URL: $url, domain: $domain")
+                // Save to database with hash, browsing data, and click count
+                dbHelper.addScreenCapture(screenshotData, imageHash, url, title, domain, currentClickCount)
+                Log.d(TAG, "Screenshot saved to database with hash: $imageHash, URL: $url, domain: $domain, click count: $currentClickCount")
                 }
+                
+                // Reset click counter after capturing
+                clickCounter = 0
                 
                 // Recycle bitmap
                 bitmap.recycle()

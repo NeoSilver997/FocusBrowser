@@ -30,6 +30,12 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="8dp" />
+
+        <Button
+            android:id="@+id/clear_all_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear All" />
     </LinearLayout>
 
     <LinearLayout
@@ -48,13 +54,9 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
-            android:text="Start Capture" />
+            android:text="Start Capture"
+            android:visibility="invisible" />
 
-        <Button
-            android:id="@+id/clear_all_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Clear All" />
     </LinearLayout>
 
     <GridView

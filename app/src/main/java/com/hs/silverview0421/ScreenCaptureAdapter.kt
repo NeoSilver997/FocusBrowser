@@ -99,6 +99,7 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
         val urlIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_URL)
         val titleIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_TITLE)
         val domainIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_DOMAIN)
+        val clickCountIndex = cursor.getColumnIndex(ScreenCaptureDbHelper.COLUMN_CLICK_COUNT)
         
         // Get data from cursor
         val timestamp = cursor.getLong(timestampIndex)
@@ -108,6 +109,7 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
         val url = if (urlIndex >= 0 && !cursor.isNull(urlIndex)) cursor.getString(urlIndex) else null
         val title = if (titleIndex >= 0 && !cursor.isNull(titleIndex)) cursor.getString(titleIndex) else null
         val domain = if (domainIndex >= 0 && !cursor.isNull(domainIndex)) cursor.getString(domainIndex) else null
+        val clickCount = if (clickCountIndex >= 0 && !cursor.isNull(clickCountIndex)) cursor.getInt(clickCountIndex) else 0
         
         // Convert timestamp to readable date
         val date = Date(timestamp)
@@ -136,10 +138,10 @@ class ScreenCaptureAdapter(context: Context, cursor: Cursor) : CursorAdapter(con
             isDuplicate && lastViewTime != null -> {
                 val lastViewDate = Date(lastViewTime)
                 val lastViewStr = dateFormat.format(lastViewDate)
-                "$dateStr (cached, last viewed: $lastViewStr)"
+                "$dateStr (cached, last viewed: $lastViewStr) - Clicks: $clickCount"
             }
-            isDuplicate -> "$dateStr (cached)"
-            else -> dateStr
+            isDuplicate -> "$dateStr (cached) - Clicks: $clickCount"
+            else -> "$dateStr - Clicks: $clickCount"
         }
         
         timestampText.text = displayText

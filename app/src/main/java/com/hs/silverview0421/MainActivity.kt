@@ -78,6 +78,9 @@ class MainActivity : AppCompatActivity() {
         // Set up scroll detection to hide/show spinner
         setupScrollDetection()
         
+        // Set up click tracking for the WebView
+        setupClickTracking()
+        
         // Configure WebView settings
         webView.settings.apply {
             javaScriptEnabled = true
@@ -261,6 +264,20 @@ class MainActivity : AppCompatActivity() {
         } else {
             // If default URL not found in map, just load it directly
             webView.loadUrl(defaultUrl)
+        }
+    }
+    
+    // Set up click tracking for the WebView
+    private fun setupClickTracking() {
+        // Add touch listener to WebView to track clicks
+        webView.setOnTouchListener { _, event ->
+            // Only count actual clicks (ACTION_UP events)
+            if (event.action == android.view.MotionEvent.ACTION_UP) {
+                // Increment click counter in ScreenCaptureService ScreenCaptureService.incrementClickCounter()
+                //Log.d("MainActivity", "Click detected and counted")
+            }
+            // Return false to allow normal touch event processing
+            false
         }
     }
     
