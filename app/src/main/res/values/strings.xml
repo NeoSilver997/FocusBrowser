@@ -10,6 +10,8 @@
     <string name="block_domain">Block Domain</string>
     <string name="unblock_domain">Unblock Domain</string>
     <string name="clear_history">Clear History</string>
+    <string name="clear_webview_cache">Clear WebView Cache</string>
+    <string name="clear_webview_session">Clear WebView Session</string>
     <string name="blocked_domains">Blocked Domains</string>
     <string name="apply_filter">Apply</string>
     <string name="clear_filter">Clear</string>

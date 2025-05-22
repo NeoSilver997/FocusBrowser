@@ -3,6 +3,7 @@ package com.hs.silverview0421
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -35,7 +36,8 @@ class MainActivity : AppCompatActivity() {
         "Chi Culture" to "https://chiculture.org.hk",
         "Our China Story" to "https://www.ourchinastory.com",
         "EPH Chinese" to "https://ephchinese.ephhk.com",
-        "eClass WYJJMPS" to "https://eclass.wyjjmps.edu.hk"
+        "eClass WYJJMPS" to "https://eclass.wyjjmps.edu.hk",
+        "SJRC" to "https://sjrc.club/zh-HK/login?redirect=/wyjjmps/zh-HK/home"
     )
     
     // Extract just the domains for URL validation
@@ -50,6 +52,8 @@ class MainActivity : AppCompatActivity() {
         "eclass.wyjjmps.edu.hk",
         "star.hkedcity.net",
         "wapps1.hkedcity.net",
+        "wapps1.hkreadingcity.hk",
+        "wapps1.edcity.hk",
         "star.edcity.hk",
         "teacher.edcity.hk",
         "www.edcity.hk"
@@ -83,7 +87,10 @@ class MainActivity : AppCompatActivity() {
         
         // Configure WebView settings
         webView.settings.apply {
-            javaScriptEnabled = true
+            // Enable JavaScript
+            webView.settings.javaScriptEnabled = true
+            // Allow mixed content (HTTP on HTTPS)
+
             domStorageEnabled = true
             databaseEnabled = false
             setSupportZoom(true)
@@ -91,6 +98,14 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = false
+            // Allow mixed content for HTTPS pages (may be needed for fonts/CSS)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
+        }
+        // Allow third-party cookies (may be needed for fonts/CSS)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         }
         
         // Set custom WebViewClient to restrict navigation and track history
@@ -98,37 +113,39 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 val host = request.url.host ?: ""
-                
+                android.util.Log.d("WebViewDebug", "shouldOverrideUrlLoading: $url (host: $host)")
                 // Check if the domain is blocked
                 if (dbHelper.isDomainBlocked(host)) {
-                    // Show dialog for parent approval
                     showParentApprovalDialog(host, url)
-                    return true // Block navigation for now
+                    return true
                 }
-                
-                // Check if the URL's domain is in the allowed list
                 val isAllowed = allowedDomains.any { domain -> host.endsWith(domain) }
-                
+                android.util.Log.d("WebViewDebug", "isAllowed: $isAllowed for $host")
                 return if (isAllowed) {
-                    // Allow navigation within allowed domains
                     false
                 } else {
-                    // Show dialog for parent approval for non-allowed domains
                     showParentApprovalDialog(host, url)
-                    // Block navigation to non-allowed domains and stay on current page
                     true
                 }
             }
-            
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                
-                // Add to history when page finishes loading
+                android.util.Log.d("WebViewDebug", "onPageFinished: $url")
                 val title = view.title ?: ""
                 val domain = Uri.parse(url).host ?: ""
-                
-                // Save to database
                 dbHelper.addHistoryEntry(url, title, domain)
+            }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                super.onReceivedError(view, request, error)
+                android.util.Log.e("WebViewDebug", "onReceivedError: ${error.errorCode} ${error.description} for ${request.url}")
+            }
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: android.webkit.WebResourceResponse) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                android.util.Log.e("WebViewDebug", "onReceivedHttpError: ${errorResponse.statusCode} for ${request.url}")
+            }
+            override fun onReceivedSslError(view: WebView, handler: android.webkit.SslErrorHandler, error: android.net.http.SslError) {
+                android.util.Log.e("WebViewDebug", "onReceivedSslError: ${error.primaryError} for ${error.url}")
+                super.onReceivedSslError(view, handler, error)
             }
         }
         
@@ -273,7 +290,8 @@ class MainActivity : AppCompatActivity() {
         webView.setOnTouchListener { _, event ->
             // Only count actual clicks (ACTION_UP events)
             if (event.action == android.view.MotionEvent.ACTION_UP) {
-                // Increment click counter in ScreenCaptureService ScreenCaptureService.incrementClickCounter()
+                // Increment click counter in ScreenCaptureService 
+                ScreenCaptureService.incrementClickCounter()
                 //Log.d("MainActivity", "Click detected and counted")
             }
             // Return false to allow normal touch event processing

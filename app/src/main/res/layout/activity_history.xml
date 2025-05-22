@@ -37,6 +37,20 @@
             android:layout_height="wrap_content"
             android:text="@string/clear_filter"
             android:layout_marginStart="8dp" />
+
+        <Button
+             android:id="@+id/clear_webview_cache_button"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="@string/clear_webview_cache"
+             android:layout_marginStart="8dp" />
+
+        <Button
+            android:id="@+id/clear_webview_session_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/clear_webview_session"
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <!-- History List -->

@@ -158,7 +158,7 @@ class ScreenCaptureService : Service() {
                         if (title != null) put(ScreenCaptureDbHelper.COLUMN_TITLE, title)
                         if (domain != null) put(ScreenCaptureDbHelper.COLUMN_DOMAIN, domain)
                         // Update click count
-                        put(ScreenCaptureDbHelper.COLUMN_CLICK_COUNT, currentClickCount)
+                        //put(ScreenCaptureDbHelper.COLUMN_CLICK_COUNT, currentClickCount)
                     }
                     db.update(
                         ScreenCaptureDbHelper.TABLE_CAPTURES,

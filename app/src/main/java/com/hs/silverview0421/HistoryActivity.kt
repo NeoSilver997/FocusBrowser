@@ -53,6 +53,26 @@ class HistoryActivity : AppCompatActivity() {
             applyFilter()
         }
 
+        val clearWebViewCacheButton: Button = findViewById(R.id.clear_webview_cache_button)
+        val clearWebViewSessionButton: Button = findViewById(R.id.clear_webview_session_button)
+
+        clearWebViewCacheButton.setOnClickListener {
+            // Clear WebView cache
+            val webView = android.webkit.WebView(this)
+            webView.clearCache(true)
+            webView.clearFormData()
+            android.widget.Toast.makeText(this, "WebView cache cleared", android.widget.Toast.LENGTH_SHORT).show()
+            // No need to reload history as this doesn't affect the history DB
+        }
+
+        clearWebViewSessionButton.setOnClickListener {
+            // Clear WebView session (cookies)
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.removeAllCookies(null)
+            cookieManager.flush()
+            android.widget.Toast.makeText(this, "WebView session cleared", android.widget.Toast.LENGTH_SHORT).show()
+        }
+
         clearFilterButton.setOnClickListener {
             filterEditText.setText("")
             loadAllHistory()
