@@ -182,6 +182,49 @@ class ScreenCaptureDbHelper(context: Context) : SQLiteOpenHelper(context, DATABA
         )
     }
     
+    // Update an existing capture when a duplicate is found
+    fun updateDuplicateCapture(id: Long, url: String?, title: String?, domain: String?, newClicks: Int) {
+        val db = writableDatabase
+
+        // Get the current click count from the database
+        val cursor = db.query(
+            TABLE_CAPTURES,
+            arrayOf(COLUMN_CLICK_COUNT),
+            "$COLUMN_ID = ?",
+            arrayOf(id.toString()),
+            null,
+            null,
+            null
+        )
+
+        var existingClickCount = 0
+        if (cursor.moveToFirst()) {
+            val clickCountIndex = cursor.getColumnIndex(COLUMN_CLICK_COUNT)
+            if (clickCountIndex >= 0 && !cursor.isNull(clickCountIndex)) {
+                existingClickCount = cursor.getInt(clickCountIndex)
+            }
+        }
+        cursor.close()
+
+        val totalClicks = existingClickCount + newClicks
+
+        val values = ContentValues().apply {
+            put(COLUMN_LAST_VIEW_TIME, System.currentTimeMillis())
+            put(COLUMN_URL, url)
+            put(COLUMN_TITLE, title)
+            put(COLUMN_DOMAIN, domain)
+            put(COLUMN_CLICK_COUNT, totalClicks)
+        }
+
+        db.update(
+            TABLE_CAPTURES,
+            values,
+            "$COLUMN_ID = ?",
+            arrayOf(id.toString())
+        )
+        db.close()
+    }
+
     // Update the last view time for a capture
     fun updateLastViewTime(id: Long) {
         val db = writableDatabase
