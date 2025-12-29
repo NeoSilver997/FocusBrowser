@@ -60,4 +60,12 @@
     <string name="no_captures_to_clear">No captures to clear</string>
     <string name="cleared_captures">Cleared %1$d captures</string>
     <string name="use_main_activity_capture">Please use the Screen Captures option in the main browsing view</string>
+    
+    <!-- App Lock and Usage Stats -->
+    <string name="admin_exit_title">Admin Exit</string>
+    <string name="admin_exit_message">Enter admin password to exit the app:</string>
+    <string name="admin_password_prompt">Admin Password</string>
+    <string name="screen_time_today">Screen time today: %1$s</string>
+    <string name="usage_stats_permission_required">Usage stats permission is required to track screen time</string>
+    <string name="app_locked_message">App is in lock mode. Use admin exit to close.</string>
 </resources>

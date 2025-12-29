@@ -12,6 +12,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -25,6 +26,8 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var webView: WebView
     private lateinit var domainSpinner: Spinner
+    private lateinit var adminExitButton: View
+    private lateinit var usageStatsHelper: UsageStatsHelper
     private val defaultUrl = "https://fireflies.chiculture.org.hk"
     
     // Map of site names to domain URLs for the dropdown
@@ -69,9 +72,13 @@ class MainActivity : AppCompatActivity() {
         // Initialize database helper
         dbHelper = BrowsingHistoryDbHelper(this)
         
+        // Initialize usage stats helper
+        usageStatsHelper = UsageStatsHelper(this)
+        
         // Initialize views
         webView = findViewById(R.id.webView)
         domainSpinner = findViewById(R.id.domainSpinner)
+        adminExitButton = findViewById(R.id.adminExitButton)
         
         // Set up the domain spinner
         setupDomainSpinner()
@@ -84,6 +91,12 @@ class MainActivity : AppCompatActivity() {
         
         // Set up click tracking for the WebView
         setupClickTracking()
+        
+        // Set up admin exit button
+        setupAdminExitButton()
+        
+        // Check and request usage stats permission if needed
+        checkUsageStatsPermission()
         
         // Configure WebView settings
         webView.settings.apply {
@@ -201,12 +214,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        // Block back button - app is in lock mode
         // Handle back button to navigate within WebView history if possible
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
-            super.onBackPressed()
+            // Show toast that app is locked
+            Toast.makeText(this, getString(R.string.app_locked_message), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -297,6 +313,94 @@ class MainActivity : AppCompatActivity() {
             // Return false to allow normal touch event processing
             false
         }
+    }
+    
+    // Set up admin exit button (hidden button in bottom-right corner)
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupAdminExitButton() {
+        var tapCount = 0
+        var lastTapTime = 0L
+        val tapTimeout = 500L // Time window for triple tap (500ms)
+        
+        adminExitButton.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val currentTime = System.currentTimeMillis()
+                
+                // Reset tap count if too much time has passed
+                if (currentTime - lastTapTime > tapTimeout) {
+                    tapCount = 0
+                }
+                
+                tapCount++
+                lastTapTime = currentTime
+                
+                // Show admin exit dialog on triple tap
+                if (tapCount >= 3) {
+                    tapCount = 0
+                    showAdminExitDialog()
+                    return@setOnTouchListener true
+                }
+            }
+            false
+        }
+    }
+    
+    // Check if usage stats permission is granted
+    private fun checkUsageStatsPermission() {
+        if (!usageStatsHelper.hasUsageStatsPermission()) {
+            // Show dialog to request permission
+            AlertDialog.Builder(this)
+                .setTitle(getString(R.string.usage_stats_permission_required))
+                .setMessage("This app tracks screen time to monitor usage. Please grant usage access permission.")
+                .setPositiveButton(getString(R.string.ok)) { _, _ ->
+                    usageStatsHelper.requestUsageStatsPermission()
+                }
+                .setNegativeButton(getString(R.string.cancel), null)
+                .show()
+        }
+    }
+    
+    // Show admin exit dialog
+    private fun showAdminExitDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_parent_approval, null)
+        val passwordEditText = dialogView.findViewById<EditText>(R.id.password_edit_text)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.admin_exit_title))
+            .setMessage(getString(R.string.admin_exit_message))
+            .setView(dialogView)
+            .setPositiveButton(getString(R.string.exit)) { _, _ ->
+                // Do nothing here, we'll override this below
+            }
+            .setNegativeButton(getString(R.string.cancel), null)
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val password = passwordEditText.text.toString()
+                if (isParentPasswordCorrect(password)) {
+                    // Password correct, show screen time and exit
+                    val screenTime = usageStatsHelper.getTodayScreenTime()
+                    val formattedTime = usageStatsHelper.formatScreenTime(screenTime)
+                    
+                    Toast.makeText(
+                        this,
+                        getString(R.string.screen_time_today, formattedTime),
+                        Toast.LENGTH_LONG
+                    ).show()
+                    
+                    dialog.dismiss()
+                    // Exit the app
+                    finishAffinity()
+                } else {
+                    // Password incorrect
+                    passwordEditText.error = getString(R.string.incorrect_password)
+                }
+            }
+        }
+        
+        dialog.show()
     }
     
     // Method to show parent approval dialog
