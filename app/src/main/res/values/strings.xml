@@ -75,4 +75,8 @@
     <string name="time_limit_warning">Warning: %1$s remaining</string>
     <string name="time_remaining">Time remaining: %1$s</string>
     <string name="camera_permission_required">Camera permission is required for this feature</string>
+    <string name="camera_permission_granted">Camera permission granted</string>
+    <string name="time_limit_message">You have used %1$s today. Enter admin password to continue or exit:</string>
+    <string name="continue_button">Continue</string>
+    <string name="time_limit_reset_message">Time limit reset. Continue using the app.</string>
 </resources>

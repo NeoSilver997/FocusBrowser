@@ -312,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             CAMERA_PERMISSION_REQUEST_CODE -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.camera_permission_granted), Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, getString(R.string.camera_permission_required), Toast.LENGTH_SHORT).show()
                 }
@@ -560,9 +560,9 @@ class MainActivity : AppCompatActivity() {
         
         val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.time_limit_reached))
-            .setMessage("You have used $formattedUsedTime today. Enter admin password to continue or exit:")
+            .setMessage(getString(R.string.time_limit_message, formattedUsedTime))
             .setView(dialogView)
-            .setPositiveButton("Continue") { _, _ ->
+            .setPositiveButton(getString(R.string.continue_button)) { _, _ ->
                 // Do nothing here, we'll override this below
             }
             .setNegativeButton(getString(R.string.exit)) { _, _ ->
@@ -579,7 +579,7 @@ class MainActivity : AppCompatActivity() {
                     // Password correct, reset time limit
                     dialog.dismiss()
                     timeLimitHelper.resetTimeLimit()
-                    Toast.makeText(this, "Time limit reset. Continue using the app.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.time_limit_reset_message), Toast.LENGTH_SHORT).show()
                 } else {
                     // Password incorrect
                     passwordEditText.error = getString(R.string.incorrect_password)
