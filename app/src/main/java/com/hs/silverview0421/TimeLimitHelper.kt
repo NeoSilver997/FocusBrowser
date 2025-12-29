@@ -63,7 +63,12 @@ class TimeLimitHelper(private val context: Context) {
      */
     private fun getTodayDateString(): String {
         val calendar = Calendar.getInstance()
-        return "${calendar.get(Calendar.YEAR)}-${calendar.get(Calendar.MONTH) + 1}-${calendar.get(Calendar.DAY_OF_MONTH)}"
+        return String.format(
+            "%04d-%02d-%02d",
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
     }
     
     /**
@@ -169,11 +174,14 @@ class TimeLimitHelper(private val context: Context) {
                 
                 if (remainingTime <= 0) {
                     onTimeLimitReached?.invoke()
+                    // Stop checking once limit is reached
+                    stopPeriodicCheck()
                 } else if (remainingTime <= 5 * 60 * 1000) { // 5 minutes warning
                     onTimeWarning?.invoke(remainingTime)
+                    handler.postDelayed(this, CHECK_INTERVAL_MS)
+                } else {
+                    handler.postDelayed(this, CHECK_INTERVAL_MS)
                 }
-                
-                handler.postDelayed(this, CHECK_INTERVAL_MS)
             }
         }
         handler.post(checkRunnable!!)
@@ -195,5 +203,7 @@ class TimeLimitHelper(private val context: Context) {
             .putLong(KEY_USED_TIME_TODAY, 0)
             .putLong(KEY_SESSION_START, System.currentTimeMillis())
             .apply()
+        // Restart periodic check after reset
+        startPeriodicCheck()
     }
 }

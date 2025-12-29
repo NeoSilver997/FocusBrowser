@@ -115,9 +115,6 @@ class MainActivity : AppCompatActivity() {
         // Check and request usage stats permission if needed
         checkUsageStatsPermission()
         
-        // Request camera permission if needed
-        requestCameraPermission()
-        
         // Set up time limit callbacks
         setupTimeLimitCallbacks()
         
@@ -163,12 +160,14 @@ class MainActivity : AppCompatActivity() {
                     // Grant the permission to WebView
                     request.grant(request.resources)
                 } else {
-                    // Request camera permission from user
+                    // Request camera permission from user first
                     ActivityCompat.requestPermissions(
                         this@MainActivity,
                         arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
                         CAMERA_PERMISSION_REQUEST_CODE
                     )
+                    // Deny the request for now, user will need to retry after granting permission
+                    request.deny()
                 }
             }
         }
@@ -529,18 +528,6 @@ class MainActivity : AppCompatActivity() {
         }
         
         dialog.show()
-    }
-    
-    // Request camera permission
-    private fun requestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
-                CAMERA_PERMISSION_REQUEST_CODE
-            )
-        }
     }
     
     // Set up time limit callbacks
