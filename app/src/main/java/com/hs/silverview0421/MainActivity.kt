@@ -30,6 +30,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var usageStatsHelper: UsageStatsHelper
     private val defaultUrl = "https://fireflies.chiculture.org.hk"
     
+    // Constants for admin exit button
+    private companion object {
+        const val TRIPLE_TAP_TIMEOUT_MS = 500L
+        const val REQUIRED_TAP_COUNT = 3
+    }
+    
     // Map of site names to domain URLs for the dropdown
     private val siteMap = mapOf(
         "WYJJMPS" to "https://www.wyjjmps.edu.hk",
@@ -320,14 +326,13 @@ class MainActivity : AppCompatActivity() {
     private fun setupAdminExitButton() {
         var tapCount = 0
         var lastTapTime = 0L
-        val tapTimeout = 500L // Time window for triple tap (500ms)
         
         adminExitButton.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 val currentTime = System.currentTimeMillis()
                 
                 // Reset tap count if too much time has passed
-                if (currentTime - lastTapTime > tapTimeout) {
+                if (currentTime - lastTapTime > TRIPLE_TAP_TIMEOUT_MS) {
                     tapCount = 0
                 }
                 
@@ -335,7 +340,7 @@ class MainActivity : AppCompatActivity() {
                 lastTapTime = currentTime
                 
                 // Show admin exit dialog on triple tap
-                if (tapCount >= 3) {
+                if (tapCount >= REQUIRED_TAP_COUNT) {
                     tapCount = 0
                     showAdminExitDialog()
                     return@setOnTouchListener true
