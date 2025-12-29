@@ -79,7 +79,7 @@ class UsageStatsHelper(private val context: Context) {
         }
         
         val usageStatsList = usageStatsManager?.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
+            UsageStatsManager.INTERVAL_BEST,
             startTime,
             endTime
         ) ?: return 0

@@ -67,5 +67,6 @@
     <string name="admin_password_prompt">Admin Password</string>
     <string name="screen_time_today">Screen time today: %1$s</string>
     <string name="usage_stats_permission_required">Usage stats permission is required to track screen time</string>
+    <string name="usage_stats_permission_message">This app tracks screen time to monitor usage. Please grant usage access permission.</string>
     <string name="app_locked_message">App is in lock mode. Use admin exit to close.</string>
 </resources>

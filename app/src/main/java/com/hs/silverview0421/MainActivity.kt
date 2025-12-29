@@ -351,7 +351,7 @@ class MainActivity : AppCompatActivity() {
             // Show dialog to request permission
             AlertDialog.Builder(this)
                 .setTitle(getString(R.string.usage_stats_permission_required))
-                .setMessage("This app tracks screen time to monitor usage. Please grant usage access permission.")
+                .setMessage(getString(R.string.usage_stats_permission_message))
                 .setPositiveButton(getString(R.string.ok)) { _, _ ->
                     usageStatsHelper.requestUsageStatsPermission()
                 }
