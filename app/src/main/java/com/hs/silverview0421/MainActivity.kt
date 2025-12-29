@@ -1,13 +1,17 @@
 package com.hs.silverview0421
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.webkit.PermissionRequest
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -21,6 +25,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
     
@@ -28,12 +34,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var domainSpinner: Spinner
     private lateinit var adminExitButton: View
     private lateinit var usageStatsHelper: UsageStatsHelper
+    private lateinit var timeLimitHelper: TimeLimitHelper
     private val defaultUrl = "https://fireflies.chiculture.org.hk"
     
     // Constants for admin exit button
     private companion object {
         const val TRIPLE_TAP_TIMEOUT_MS = 500L
         const val REQUIRED_TAP_COUNT = 3
+        const val CAMERA_PERMISSION_REQUEST_CODE = 100
     }
     
     // Map of site names to domain URLs for the dropdown
@@ -81,6 +89,9 @@ class MainActivity : AppCompatActivity() {
         // Initialize usage stats helper
         usageStatsHelper = UsageStatsHelper(this)
         
+        // Initialize time limit helper
+        timeLimitHelper = TimeLimitHelper(this)
+        
         // Initialize views
         webView = findViewById(R.id.webView)
         domainSpinner = findViewById(R.id.domainSpinner)
@@ -104,6 +115,15 @@ class MainActivity : AppCompatActivity() {
         // Check and request usage stats permission if needed
         checkUsageStatsPermission()
         
+        // Request camera permission if needed
+        requestCameraPermission()
+        
+        // Set up time limit callbacks
+        setupTimeLimitCallbacks()
+        
+        // Start time limit tracking
+        timeLimitHelper.startSession()
+        
         // Configure WebView settings
         webView.settings.apply {
             // Enable JavaScript
@@ -117,6 +137,8 @@ class MainActivity : AppCompatActivity() {
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = false
+            // Enable media playback
+            mediaPlaybackRequiresUserGesture = false
             // Allow mixed content for HTTPS pages (may be needed for fonts/CSS)
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                 mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -125,6 +147,30 @@ class MainActivity : AppCompatActivity() {
         // Allow third-party cookies (may be needed for fonts/CSS)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        }
+        
+        // Set WebChromeClient to handle camera/microphone permissions
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                
+                // Check if we have camera permission
+                if (ContextCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.CAMERA
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    // Grant the permission to WebView
+                    request.grant(request.resources)
+                } else {
+                    // Request camera permission from user
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+                        CAMERA_PERMISSION_REQUEST_CODE
+                    )
+                }
+            }
         }
         
         // Set custom WebViewClient to restrict navigation and track history
@@ -234,8 +280,45 @@ class MainActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
+        // End time limit session
+        timeLimitHelper.endSession()
         // Close database connection
         dbHelper.close()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // End time limit session when app goes to background
+        timeLimitHelper.endSession()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Start time limit session when app comes to foreground
+        timeLimitHelper.startSession()
+        
+        // Check if time limit is already reached
+        if (timeLimitHelper.isTimeLimitReached()) {
+            showTimeLimitDialog()
+        }
+    }
+    
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        when (requestCode) {
+            CAMERA_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(this, "Camera permission granted", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, getString(R.string.camera_permission_required), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
     
     // Set up scroll detection to hide/show spinner and action bar when scrolling in WebView
@@ -438,6 +521,78 @@ class MainActivity : AppCompatActivity() {
                     }
                     // Load the URL
                     webView.loadUrl(url)
+                } else {
+                    // Password incorrect
+                    passwordEditText.error = getString(R.string.incorrect_password)
+                }
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    // Request camera permission
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        }
+    }
+    
+    // Set up time limit callbacks
+    private fun setupTimeLimitCallbacks() {
+        timeLimitHelper.setOnTimeLimitReached {
+            runOnUiThread {
+                showTimeLimitDialog()
+            }
+        }
+        
+        timeLimitHelper.setOnTimeWarning { remainingTime ->
+            runOnUiThread {
+                val formattedTime = timeLimitHelper.formatTime(remainingTime)
+                Toast.makeText(
+                    this,
+                    getString(R.string.time_limit_warning, formattedTime),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    
+    // Show time limit reached dialog
+    private fun showTimeLimitDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_parent_approval, null)
+        val passwordEditText = dialogView.findViewById<EditText>(R.id.password_edit_text)
+        
+        val usedTime = timeLimitHelper.getUsedTimeToday()
+        val formattedUsedTime = timeLimitHelper.formatTime(usedTime)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.time_limit_reached))
+            .setMessage("You have used $formattedUsedTime today. Enter admin password to continue or exit:")
+            .setView(dialogView)
+            .setPositiveButton("Continue") { _, _ ->
+                // Do nothing here, we'll override this below
+            }
+            .setNegativeButton(getString(R.string.exit)) { _, _ ->
+                finishAffinity()
+            }
+            .setCancelable(false)
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val password = passwordEditText.text.toString()
+                if (isParentPasswordCorrect(password)) {
+                    // Password correct, reset time limit
+                    dialog.dismiss()
+                    timeLimitHelper.resetTimeLimit()
+                    Toast.makeText(this, "Time limit reset. Continue using the app.", Toast.LENGTH_SHORT).show()
                 } else {
                     // Password incorrect
                     passwordEditText.error = getString(R.string.incorrect_password)

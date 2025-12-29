@@ -69,4 +69,10 @@
     <string name="usage_stats_permission_required">Usage stats permission is required to track screen time</string>
     <string name="usage_stats_permission_message">This app tracks screen time to monitor usage. Please grant usage access permission.</string>
     <string name="app_locked_message">App is in lock mode. Use admin exit to close.</string>
+    
+    <!-- Time Limit -->
+    <string name="time_limit_reached">Time limit reached! Please take a break.</string>
+    <string name="time_limit_warning">Warning: %1$s remaining</string>
+    <string name="time_remaining">Time remaining: %1$s</string>
+    <string name="camera_permission_required">Camera permission is required for this feature</string>
 </resources>
